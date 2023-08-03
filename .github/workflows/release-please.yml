@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - "main"
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    env:
+      PACKAGE_NAME: "epigos"
+    steps:
+      - name: release please
+        uses: google-github-actions/release-please-action@v3
+        id: release
+        with:
+          release-type: python
+          package-name: ${{ env.PACKAGE_NAME }}
+
+      - name: fetch code
+        uses: actions/checkout@v3
+        if: ${{ steps.release.outputs.release_created }}
+
+      - name: Set up Python ${{ matrix.python-version }}
+        if: ${{ steps.release.outputs.release_created }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - uses: Gr1N/setup-poetry@v8
+        if: ${{ steps.release.outputs.release_created }}
+
+      - name: "Install dependencies"
+        if: ${{ steps.release.outputs.release_created }}
+        run: |
+          poetry config virtualenvs.create false
+          poetry install --no-interaction
+
+      - name: build release
+        if: ${{ steps.release.outputs.release_created }}
+        run: poetry build
+
+      - name: upload assets
+        uses: softprops/action-gh-release@v1
+        if: ${{ steps.release.outputs.release_created }}
+        with:
+          tag_name: ${{ steps.release.outputs.tag_name }}
+          files: dist/*
+
+      - name: publish release
+        if: ${{ steps.release.outputs.release_created }}
+        run: poetry publish
+        env:
+          POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_AUTH_TOKEN }}
