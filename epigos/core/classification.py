@@ -1,5 +1,4 @@
 import typing
-import urllib.parse
 
 from epigos import typings
 from epigos.core.base import PredictionModel
@@ -30,7 +29,7 @@ class ClassificationModel(PredictionModel):
         if image_utils.is_path(image_path):
             image = image_utils.image_to_b64(image_path)
         elif image_utils.is_url(image_path):
-            image = urllib.parse.quote_plus(image_path)
+            image = image_path
         else:
             raise ValueError(f"Image does not exist at {image_path}!")
 

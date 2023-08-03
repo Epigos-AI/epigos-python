@@ -48,8 +48,10 @@ Make predictions with any of the models deployed in your workspace using the `Mo
 import epigos
 
 client = epigos.Epigos("api_key")
+
 # load classification model
 model = client.classification("model_id")
+
 # make predictions
 results = model.predict("path/to/your/image.jpg")
 print(results.json())
