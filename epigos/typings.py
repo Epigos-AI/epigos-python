@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 import typing
 
-from typing_extensions import TypedDict
+from typing_extensions import TypeAlias, TypedDict
 
 
 class ModelType(str, enum.Enum):
@@ -63,6 +63,6 @@ class ClassificationPrediction(PredictedClass):
     predictions: typing.List[PredictedClass]
 
 
-Predictions: typing.TypeAlias = typing.Union[
+Predictions: TypeAlias = typing.Union[
     ClassificationPrediction, ObjectDetectionPrediction
 ]
