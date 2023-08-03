@@ -17,6 +17,8 @@ jobs:
         with:
           release-type: python
           package-name: ${{ env.PACKAGE_NAME }}
+          extra-files: |
+            epigos/__version__.py
 
       - name: fetch code
         uses: actions/checkout@v3
