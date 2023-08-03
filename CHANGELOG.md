@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/Epigos-Inc/epigos-python/compare/v0.1.0...v0.1.1) (2023-08-03)
+
+
+### Bug Fixes
+
+* remove url quoting in payloads ([dd89038](https://github.com/Epigos-Inc/epigos-python/commit/dd8903885c09c6b54cd393e941be80e09c68f63e))
+
 ## 0.1.0 (2023-08-03)
 
 
