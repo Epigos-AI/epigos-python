@@ -25,7 +25,7 @@ Or with poetry
 poetry add epigos
 ```
 
-## Gettting Started
+## Getting Started
 
 To make your first API call, you will need to signup at [epigos.ai](https://epigos.ai) and create an
 API key for your workspace. Please contact our sales team for a demo.
