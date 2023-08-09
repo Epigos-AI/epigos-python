@@ -17,7 +17,7 @@ def test_client_and_headers():
     expected_headers = {
         "Content-Type": "application/json",
         "X-Api-Key": api_key,
-        "user-agent": f"Epigos-SDK/Python; Version: {__version__}",
+        "X-Client-Sdk": f"Epigos-SDK/Python; Version: {__version__}",
     }
     for key, value in expected_headers.items():
         assert epigos.client.headers.get(key) == value

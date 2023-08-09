@@ -6,7 +6,7 @@ import httpx
 from .__version__ import __version__
 from .core import ClassificationModel, ObjectDetectionModel
 
-BASE_API = "https://predict.epigos.ai"
+BASE_API = "https://api.epigos.ai"
 
 
 class EpigosException(Exception):
@@ -51,7 +51,7 @@ class Epigos:
             headers={
                 "Content-Type": "application/json",
                 "X-Api-Key": self._api_key,
-                "user-agent": f"Epigos-SDK/Python; Version: {__version__}",
+                "X-Client-Sdk": f"Epigos-SDK/Python; Version: {__version__}",
             },
         )
 
