@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/Epigos-Inc/epigos-python/compare/v0.1.1...v0.1.2) (2023-08-09)
+
+
+### Bug Fixes
+
+* update api endpoint ([3f18e83](https://github.com/Epigos-Inc/epigos-python/commit/3f18e8372ed6a39266fac0b001b3c50ab655de7a))
+
 ## [0.1.1](https://github.com/Epigos-Inc/epigos-python/compare/v0.1.0...v0.1.1) (2023-08-03)
 
 
