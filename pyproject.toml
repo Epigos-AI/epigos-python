@@ -7,7 +7,7 @@ license = "MIT"
 readme = "README.md"
 keywords = []
 classifiers = ["Programming Language :: Python :: 3", "License :: OSI Approved :: MIT License", ]
-homepage = "https://github.com/Epigos-Inc/epigos-python"
+homepage = "https://github.com/Epigos-AI/epigos-python"
 documentation = "https://docs.epigos.ai/sdks/python"
 
 [[tool.poetry.packages]]
