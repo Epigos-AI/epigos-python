@@ -53,3 +53,13 @@ def image_to_b64(image_path: str) -> str:
         img_bytes = base64.b64encode(buffer.getvalue())
 
     return img_bytes.decode("ascii")
+
+
+def b64_to_image(image_str: str) -> Image.Image:
+    """
+    Convert base64 encoded string to Pil.Image
+    :param image_str: base64 encoded string image
+    :return: Pil.Image
+    """
+    image_bytes = base64.b64decode(image_str)
+    return Image.open(io.BytesIO(image_bytes))

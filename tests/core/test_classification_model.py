@@ -32,4 +32,4 @@ def test_predict_ok(
         respx_mock.head(image_path).mock(return_value=httpx.Response(200))
 
     pred = model.predict(image_path)
-    assert pred.json() == classification_prediction
+    assert pred.dict() == classification_prediction

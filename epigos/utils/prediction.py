@@ -1,30 +1,94 @@
-from epigos import typings
+import dataclasses
+import typing
+
+from PIL import Image
+
+from epigos.utils.image import b64_to_image
 
 
-class Prediction:
+@dataclasses.dataclass
+class PredictedClass:
     """
-    Prediction.
+    Predicted Class.
 
-    Generalized object for both Object Detection and Classification Models.
-
-    :param json_predictions: JSON response from the API
-    :param image_path: Image path used for the prediction
-    :param model_type: Model type
+    Represents classification prediction item
     """
 
-    def __init__(
-        self,
-        json_predictions: typings.Predictions,
-        image_path: str,
-        model_type: typings.ModelType,
-    ) -> None:
-        self._json_predictions = json_predictions
-        self._image_path = image_path
-        self._model_type = model_type
+    category: str
+    confidence: float
 
-    def json(self) -> typings.Predictions:
+
+@dataclasses.dataclass
+class Classification(PredictedClass):
+    """
+    Classification.
+
+    Represents classification prediction results.
+    """
+
+    predictions: list[PredictedClass] = dataclasses.field(default_factory=list)
+
+    def dict(self) -> typing.Dict[str, typing.Any]:
         """
-        Gets the json response of the prediction
-        :return: typings.Predictions
+        Return dict representation of the data
+        :return: dicts
         """
-        return self._json_predictions
+        return dataclasses.asdict(self)
+
+
+@dataclasses.dataclass
+class DetectedObject:
+    """
+    Detected Object.
+
+    Represents object detection item
+    """
+
+    label: str
+    confidence: float
+    x: float
+    y: float
+    width: float
+    height: float
+
+
+@dataclasses.dataclass
+class ObjectDetection:
+    """
+    Object Detection.
+
+    Represents object detection inference results.
+    """
+
+    detections: typing.List[DetectedObject] = dataclasses.field(default_factory=list)
+    base64_image: typing.Optional[str] = dataclasses.field(default=None, repr=False)
+
+    def __post_init__(self) -> None:
+        self._image = b64_to_image(self.base64_image) if self.base64_image else None
+
+    def get_image(self) -> Image.Image:
+        """
+        Get the decoded image from the API response
+        :return: Pil.Image
+        """
+        if not self._image:
+            raise ValueError(
+                "No image returned for this prediction. "
+                "Set `annotate=True` when making predictions "
+                "to return the annotated image"
+            )
+        return self._image
+
+    def show(self) -> None:
+        """
+        Displays the Pil.Image
+        :return:
+        """
+        self.get_image().show()
+
+    def dict(self) -> typing.Dict[str, typing.Any]:
+        """
+        Return dict representation of the data
+        :return: dicts
+        """
+        return dataclasses.asdict(self)

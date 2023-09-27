@@ -73,7 +73,7 @@ filterwarnings = [
 
 [tool.mypy]
 strict = true
-exclude = ["tests"]
+exclude = ["tests", "dist"]
 
 [tool.autoflake]
 quiet = true

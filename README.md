@@ -54,7 +54,24 @@ model = client.classification("model_id")
 
 # make predictions
 results = model.predict("path/to/your/image.jpg")
-print(results.json())
+print(results.dict())
+```
+
+#### Object detection
+
+```python
+import epigos
+
+client = epigos.Epigos("api_key")
+
+# load object detection model
+model = client.object_detection("model_id")
+
+# make predictions
+results = model.detect("path/to/your/image.jpg")
+print(results.dict())
+# visualize detections
+results.show()
 ```
 
 ## Contributing
