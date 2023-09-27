@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0](https://github.com/Epigos-AI/epigos-python/compare/v0.1.2...v1.0.0) (2023-09-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* add object detection inference
+
+### Features
+
+* add object detection inference ([c270f2e](https://github.com/Epigos-AI/epigos-python/commit/c270f2e6e0a935fee88586a4a3ee3fe7791f551b))
+
 ## [0.1.2](https://github.com/Epigos-AI/epigos-python/compare/v0.1.1...v0.1.2) (2023-08-09)
 
 
