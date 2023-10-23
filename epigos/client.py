@@ -4,7 +4,7 @@ from json import JSONDecodeError
 import httpx
 
 from .__version__ import __version__
-from .core import ClassificationModel, ObjectDetectionModel
+from .core import ClassificationModel, ObjectDetectionModel, Project
 
 BASE_API = "https://api.epigos.ai"
 
@@ -56,7 +56,9 @@ class Epigos:
         )
 
     @staticmethod
-    def _deserialize(response: httpx.Response) -> typing.Dict[str, typing.Any]:
+    def _deserialize(
+        response: httpx.Response,
+    ) -> typing.Any:
         """
         Deserializes response into an object.
 
@@ -66,17 +68,15 @@ class Epigos:
         try:
             json_data = response.json()
         except JSONDecodeError:
-            json_data = None
-
-        data = json_data if isinstance(json_data, dict) else {"message": response.text}
+            json_data = {"message": response.text}
 
         if not response.is_success:
             raise EpigosException(
-                message=data.get("message"),
-                details=data.get("details") or [],
+                message=json_data.get("message"),
+                details=json_data.get("details") or [],
                 status_code=response.status_code,
             )
-        return data
+        return json_data
 
     def call_api(
         self,
@@ -86,7 +86,7 @@ class Epigos:
         json: typing.Optional[typing.Any] = None,
         params: typing.Optional[typing.Dict[str, typing.Any]] = None,
         **kwargs: typing.Any,
-    ) -> typing.Dict[str, typing.Any]:
+    ) -> typing.Any:
         """
         Makes the HTTP request and returns deserialized data
 
@@ -100,6 +100,16 @@ class Epigos:
             method, path, params=httpx.QueryParams(params), json=json, **kwargs
         )
         return self._deserialize(response)
+
+    def project(self, project_id: str) -> Project:
+        """
+        Creates an instance of project using the given project_id
+        :param project_id: ID of project to load
+        :return: Project
+        """
+        if project_id is None:
+            raise ValueError("project_id is required")
+        return Project(self, project_id)
 
     def classification(self, model_id: str) -> ClassificationModel:
         """

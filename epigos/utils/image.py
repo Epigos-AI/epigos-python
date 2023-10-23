@@ -6,6 +6,8 @@ import urllib.parse
 import httpx
 from PIL import Image
 
+ACCEPTED_IMAGE_FORMATS = ["PNG", "JPEG"]
+
 
 def is_path(file_path: str) -> bool:
     """

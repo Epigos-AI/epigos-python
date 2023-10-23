@@ -2,7 +2,7 @@ import dataclasses
 import typing
 
 from epigos.core.base import PredictionModel
-from epigos.utils.prediction import ObjectDetection
+from epigos.data_classes.prediction import ObjectDetection
 
 
 @dataclasses.dataclass

@@ -1,4 +1,4 @@
-from epigos.utils.prediction import Classification, ObjectDetection
+from epigos.data_types.prediction import Classification, ObjectDetection
 
 
 def test_can_get_classification_dict(classification_prediction):

@@ -1,5 +1,5 @@
 from epigos.core.base import PredictionModel
-from epigos.utils.prediction import Classification
+from epigos.data_classes.prediction import Classification
 
 
 class ClassificationModel(PredictionModel):
