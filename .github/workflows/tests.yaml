@@ -45,5 +45,5 @@ jobs:
         with:
           fail_ci_if_error: true
         env:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
           slug: Epigos-AI/epigos-python
