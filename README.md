@@ -2,6 +2,8 @@
 
 ![Tests](https://github.com/Epigos-AI/epigos-python/actions/workflows/tests.yaml/badge.svg)
 
+[![codecov](https://codecov.io/gh/Epigos-AI/epigos-python/graph/badge.svg?token=Gjq4x5iM2H)](https://codecov.io/gh/Epigos-AI/epigos-python)
+
 Epigos provides an end-to-end platform to annotate data, train computer vision AI models,
 deploy them seamlessly and host the models via API's.
 

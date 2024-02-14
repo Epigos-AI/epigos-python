@@ -39,3 +39,11 @@ jobs:
 
       - name: "Tests"
         run: make test
+
+      - name: Upload coverage reports to Codecov with GitHub Action
+        uses: codecov/codecov-action@v4
+        with:
+          fail_ci_if_error: true
+        env:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: Epigos-AI/epigos-python
