@@ -135,24 +135,15 @@ class Project:
             raise RuntimeError(f"Provided path does not exist at {data_dir}!")
 
         data_dir = Path(data_dir)
-        annotation_dir_name = kwargs.get("annotation_dir_name") or "labels"
-        config_file = kwargs.get("config_file") or "data.yaml"
         batch_id = kwargs.get("batch_id")
         labels_map = kwargs.get("labels_map")
 
-        yolo_labels_map = None
-        imgs: typing.Union[typing.Dict[Path, Path], typing.Dict[Path, str]]
-        if self.is_object_detection:
-            if box_format == typings.BoxFormat.pascal_voc:
-                imgs = dataset_utils.read_pascal_voc_directory(
-                    data_dir, annotation_dir_name
-                )
-            else:
-                imgs, yolo_labels_map = dataset_utils.read_yolo_directory(
-                    data_dir, config_file, annotation_dir_name
-                )
-        else:
-            imgs = dataset_utils.read_image_folder(data_dir)
+        imgs, yolo_labels_map = self._read_dataset_directory(
+            data_dir,
+            box_format=box_format,
+            annotation_dir_name=kwargs.get("annotation_dir_name") or "labels",
+            config_file=kwargs.get("config_file") or "data.yaml",
+        )
 
         if not imgs:
             raise RuntimeError(
@@ -192,3 +183,34 @@ class Project:
                 for result in executor.map(_upload_file, imgs.keys(), imgs.values()):
                     pbar.update()
                     yield result
+
+    def _read_dataset_directory(
+        self,
+        data_dir: Path,
+        *,
+        annotation_dir_name: str,
+        config_file: str,
+        box_format: BoxFormat,
+    ) -> typing.Tuple[
+        typing.Union[typing.Dict[Path, Path], typing.Dict[Path, str]],
+        typing.Optional[typing.Dict[int, str]],
+    ]:
+        """
+        Reads dataset directory and returns a mapping for image files
+        and its corresponding annotations file.
+        """
+        yolo_labels_map = None
+        imgs: typing.Union[typing.Dict[Path, Path], typing.Dict[Path, str]]
+        if self.is_object_detection:
+            if box_format == typings.BoxFormat.pascal_voc:
+                imgs = dataset_utils.read_pascal_voc_directory(
+                    data_dir, annotation_dir_name
+                )
+            else:
+                imgs, yolo_labels_map = dataset_utils.read_yolo_directory(
+                    data_dir, config_file, annotation_dir_name
+                )
+        else:
+            imgs = dataset_utils.read_image_folder(data_dir)
+
+        return imgs, yolo_labels_map
