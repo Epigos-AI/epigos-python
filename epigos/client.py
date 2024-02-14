@@ -4,7 +4,7 @@ from json import JSONDecodeError
 import httpx
 
 from .__version__ import __version__
-from .core import ClassificationModel, ObjectDetectionModel
+from .core import ClassificationModel, ObjectDetectionModel, Project
 
 BASE_API = "https://api.epigos.ai"
 
@@ -42,12 +42,14 @@ class Epigos:
 
     :param api_key: Your epigos.ai workspace api key
     :param base_url: Base url to the epigos api.
+    :param timeout: HTTP request timeout in seconds. Defaults to 15 seconds.
     """
 
-    def __init__(self, api_key: str, base_url: str = BASE_API):
+    def __init__(self, api_key: str, base_url: str = BASE_API, timeout: float = 15.0):
         self._api_key = api_key
         self.client = httpx.Client(
             base_url=httpx.URL(base_url),
+            timeout=httpx.Timeout(timeout=timeout),
             headers={
                 "Content-Type": "application/json",
                 "X-Api-Key": self._api_key,
@@ -56,7 +58,9 @@ class Epigos:
         )
 
     @staticmethod
-    def _deserialize(response: httpx.Response) -> typing.Dict[str, typing.Any]:
+    def _deserialize(
+        response: httpx.Response,
+    ) -> typing.Any:
         """
         Deserializes response into an object.
 
@@ -66,19 +70,17 @@ class Epigos:
         try:
             json_data = response.json()
         except JSONDecodeError:
-            json_data = None
-
-        data = json_data if isinstance(json_data, dict) else {"message": response.text}
+            json_data = {"message": response.text}
 
         if not response.is_success:
             raise EpigosException(
-                message=data.get("message"),
-                details=data.get("details") or [],
+                message=json_data.get("message"),
+                details=json_data.get("details") or [],
                 status_code=response.status_code,
             )
-        return data
+        return json_data
 
-    def call_api(
+    def make_request(
         self,
         *,
         path: str,
@@ -86,7 +88,7 @@ class Epigos:
         json: typing.Optional[typing.Any] = None,
         params: typing.Optional[typing.Dict[str, typing.Any]] = None,
         **kwargs: typing.Any,
-    ) -> typing.Dict[str, typing.Any]:
+    ) -> typing.Any:
         """
         Makes the HTTP request and returns deserialized data
 
@@ -100,6 +102,52 @@ class Epigos:
             method, path, params=httpx.QueryParams(params), json=json, **kwargs
         )
         return self._deserialize(response)
+
+    def make_post(
+        self,
+        path: str,
+        *,
+        json: typing.Optional[typing.Any] = None,
+        params: typing.Optional[typing.Dict[str, typing.Any]] = None,
+        **kwargs: typing.Any,
+    ) -> typing.Any:
+        """
+        Makes the HTTP POST request and returns deserialized data
+
+        :param path: Path to method endpoint
+        :param json: Request body
+        :param params: Query parameters in the url
+        :returns: Returns the response data from the api
+        """
+        return self.make_request(
+            path=path, method="POST", json=json, params=params, **kwargs
+        )
+
+    def make_get(
+        self,
+        path: str,
+        *,
+        params: typing.Optional[typing.Dict[str, typing.Any]] = None,
+        **kwargs: typing.Any,
+    ) -> typing.Any:
+        """
+        Makes the HTTP GET request and returns deserialized data
+
+        :param path: Path to method endpoint
+        :param params: Query parameters in the url
+        :returns: Returns the response data from the api
+        """
+        return self.make_request(path=path, method="GET", params=params, **kwargs)
+
+    def project(self, project_id: str) -> Project:
+        """
+        Creates an instance of project using the given project_id
+        :param project_id: ID of project to load
+        :return: Project
+        """
+        if project_id is None:
+            raise ValueError("project_id is required")
+        return Project(self, project_id)
 
     def classification(self, model_id: str) -> ClassificationModel:
         """

@@ -38,6 +38,48 @@ import epigos
 client = epigos.Epigos("api_key")
 ```
 
+### Project:
+
+Manage project and upload dataset into your project using the  `Project ID`.
+
+#### Upload an image with annotation
+
+```python
+import epigos
+
+client = epigos.Epigos("api_key")
+
+# load project
+project = client.project("project_id")
+
+# upload image with Pascal VOC annotation
+record = project.upload("path/to/image.jpg", annotation_path="path/to/image.xml", box_format="pascal_voc")
+print(record)
+
+# upload image with YOLO annotation
+record = project.upload("path/to/image.jpg", annotation_path="path/to/image.txt", box_format="yolo")
+print(record)
+```
+
+#### Upload an entire dataset folder
+
+```python
+import epigos
+
+client = epigos.Epigos("api_key")
+
+# load project
+project = client.project("project_id")
+
+# upload Pascal VOC annotation dataset
+records = project.upload_dataset("path/to/folder", box_format="pascal_voc")
+print(tuple(records))
+
+# upload YOLO annotation dataset
+records = project.upload_dataset("path/to/folder", box_format="yolo")
+print(tuple(records))
+```
+
 ### Prediction:
 
 Make predictions with any of the models deployed in your workspace using the `Model ID`.

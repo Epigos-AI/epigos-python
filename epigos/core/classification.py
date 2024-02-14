@@ -1,5 +1,5 @@
 from epigos.core.base import PredictionModel
-from epigos.utils.prediction import Classification
+from epigos.data_classes.prediction import Classification
 
 
 class ClassificationModel(PredictionModel):
@@ -24,7 +24,7 @@ class ClassificationModel(PredictionModel):
 
         data = {"image": image, "confidence": confidence}
         url = self._build_url()
-        res = self._client.call_api(path=url, method="post", json=data)
+        res = self._client.make_post(path=url, json=data)
 
         return Classification(
             category=res["category"],

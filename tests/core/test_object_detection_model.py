@@ -11,18 +11,19 @@ from epigos.core.object_detection import DetectOptions
 ASSETS_PATH = Path(__file__).parent.parent / "assets"
 
 
-def test_detect_invalid_image(respx_mock: respx.MockRouter):
-    client = Epigos("api_key")
+def test_detect_invalid_image(client: Epigos, respx_mock: respx.MockRouter):
     with pytest.raises(ValueError):
         client.object_detection("model_id").detect("invalid.jpg")
 
 
 @pytest.mark.parametrize("annotate", [True, False])
 def test_detect_image_url(
-    respx_mock: respx.MockRouter, object_detection_prediction, annotate: bool
+    client: Epigos,
+    respx_mock: respx.MockRouter,
+    object_detection_prediction,
+    annotate: bool,
 ):
     image_url = "https://foo.bar/image.jpg"
-    client = Epigos("api_key")
     model = client.object_detection("model_id")
 
     respx_mock.head(image_url).mock(return_value=httpx.Response(200))
@@ -38,10 +39,12 @@ def test_detect_image_url(
 
 @pytest.mark.parametrize("annotate", [True, False])
 def test_detect_local_image(
-    respx_mock: respx.MockRouter, object_detection_prediction, annotate: bool
+    client: Epigos,
+    respx_mock: respx.MockRouter,
+    object_detection_prediction,
+    annotate: bool,
 ):
     image_path = str(ASSETS_PATH / "cat.jpg")
-    client = Epigos("api_key")
     model = client.object_detection("model_id")
 
     if annotate:

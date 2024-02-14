@@ -2,7 +2,7 @@ import dataclasses
 import typing
 
 from epigos.core.base import PredictionModel
-from epigos.utils.prediction import ObjectDetection
+from epigos.data_classes.prediction import ObjectDetection
 
 
 @dataclasses.dataclass
@@ -58,7 +58,7 @@ class ObjectDetectionModel(PredictionModel):
             "show_prob": options.show_prob,
         }
         url = self._build_url()
-        res = self._client.call_api(path=url, method="post", json=data)
+        res = self._client.make_post(path=url, json=data)
 
         return ObjectDetection(
             detections=res["detections"], base64_image=res.get("image")

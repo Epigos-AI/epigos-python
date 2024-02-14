@@ -1,7 +1,7 @@
 .DEFAULT_GOAL = help
 
 #: run linter
-lint:
+lint: format
 	poetry lock --check
 	poetry run autoflake --check .
 	poetry run isort --check-only .

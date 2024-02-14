@@ -6,10 +6,12 @@ import urllib.parse
 import httpx
 from PIL import Image
 
+ACCEPTED_IMAGE_FORMATS = ["PNG", "JPEG"]
+
 
 def is_path(file_path: str) -> bool:
     """
-    Check whether file path is exists
+    Check whether file path exists
     :param file_path: path of file to check
     :return: Boolean
     """
