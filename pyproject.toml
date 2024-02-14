@@ -18,6 +18,9 @@ python = "^3.9"
 httpx = ">=0.24.1,<0.27.0"
 typing-extensions = "^4.7.1"
 pillow = "^10.0.0"
+pybboxes = "^0.1.6"
+pyyaml = "^6.0.1"
+tqdm = "^4.66.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=7.4,<9.0"
@@ -30,6 +33,7 @@ pre-commit = "^3.3.3"
 autoflake = "^2.2.0"
 respx = "^0.20.2"
 types-pillow = "^10.0.0.2"
+types-pyyaml = "^6.0.12.12"
 
 [build-system]
 requires = ["poetry-core"]
@@ -74,6 +78,7 @@ filterwarnings = [
 [tool.mypy]
 strict = true
 exclude = ["tests", "dist"]
+ignore_missing_imports = true
 
 [tool.autoflake]
 quiet = true

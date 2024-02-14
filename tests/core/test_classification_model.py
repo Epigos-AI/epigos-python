@@ -9,8 +9,7 @@ from epigos import Epigos
 ASSETS_PATH = Path(__file__).parent.parent / "assets"
 
 
-def test_predict_invalid_image(respx_mock: respx.MockRouter):
-    client = Epigos("api_key")
+def test_predict_invalid_image(client: Epigos, respx_mock: respx.MockRouter):
     with pytest.raises(ValueError):
         client.classification("model_id").predict("invalid.jpg")
 
@@ -19,9 +18,11 @@ def test_predict_invalid_image(respx_mock: respx.MockRouter):
     "image_path", [str(ASSETS_PATH / "cat.jpg"), "https://foo.bar/image.jpg"]
 )
 def test_predict_ok(
-    respx_mock: respx.MockRouter, classification_prediction, image_path: str
+    client: Epigos,
+    respx_mock: respx.MockRouter,
+    classification_prediction,
+    image_path: str,
 ):
-    client = Epigos("api_key")
     model = client.classification("model_id")
 
     url = model._build_url()

@@ -6,46 +6,52 @@ from epigos import ClassificationModel, Epigos, EpigosException, ObjectDetection
 from epigos.__version__ import __version__
 
 
-def test_client_and_headers():
-    api_key = "test"
-    base_url = "http://localhost"
-    epigos = Epigos(api_key, base_url=base_url)
-
-    assert isinstance(epigos.client, httpx.Client)
-    assert epigos.client.base_url == base_url
+def test_client_and_headers(client: Epigos):
+    assert isinstance(client.client, httpx.Client)
+    assert client.client.base_url == "http://test"
 
     expected_headers = {
         "Content-Type": "application/json",
-        "X-Api-Key": api_key,
+        "X-Api-Key": "api_key",
         "X-Client-Sdk": f"Epigos-SDK/Python; Version: {__version__}",
     }
     for key, value in expected_headers.items():
-        assert epigos.client.headers.get(key) == value
+        assert client.client.headers.get(key) == value
 
 
 @pytest.mark.parametrize("path,method", [("/foo", "post"), ("/foo", "get")])
-def test_client_can_call_api_ok(respx_mock: respx.MockRouter, path: str, method: str):
-    api_key = "test"
-    client = Epigos(api_key)
-
+def test_client_can_call_api_ok(
+    client: Epigos, respx_mock: respx.MockRouter, path: str, method: str
+):
     output = {"data": "ok"}
     respx_mock.request(method, path).mock(return_value=httpx.Response(200, json=output))
-    resp = client.call_api(path=path, method=method)
+    resp = client.make_request(path=path, method=method)
+    assert resp == output
+
+
+def test_client_can_make_get(client: Epigos, respx_mock: respx.MockRouter):
+    output = {"data": "ok"}
+    respx_mock.get("/path").mock(return_value=httpx.Response(200, json=output))
+    resp = client.make_get(path="/path")
+    assert resp == output
+
+
+def test_client_can_make_post(client: Epigos, respx_mock: respx.MockRouter):
+    output = {"data": "ok"}
+    respx_mock.post("/path").mock(return_value=httpx.Response(201, json=output))
+    resp = client.make_post(path="/path", json={})
     assert resp == output
 
 
 @pytest.mark.parametrize("path,method", [("/foo", "post"), ("/foo", "get")])
 def test_client_can_call_api_exception(
-    respx_mock: respx.MockRouter, path: str, method: str
+    client: Epigos, respx_mock: respx.MockRouter, path: str, method: str
 ):
-    api_key = "test"
-    client = Epigos(api_key)
-
     output = {"message": "validation errors", "details": [{"test": "error"}]}
     respx_mock.request(method, path).mock(return_value=httpx.Response(400, json=output))
 
     with pytest.raises(EpigosException) as exc:
-        client.call_api(path=path, method=method)
+        client.make_request(path=path, method=method)
 
     assert exc.value.details == output["details"]
     assert exc.value.status_code == 400
@@ -53,29 +59,23 @@ def test_client_can_call_api_exception(
 
 @pytest.mark.parametrize("path,method", [("/foo", "post"), ("/foo", "get")])
 def test_client_can_call_api_exception_non_json_response(
-    respx_mock: respx.MockRouter, path: str, method: str
+    client: Epigos, respx_mock: respx.MockRouter, path: str, method: str
 ):
-    api_key = "test"
-    client = Epigos(api_key)
-
     output = "Validation error"
     respx_mock.request(method, path).mock(return_value=httpx.Response(400, text=output))
 
     with pytest.raises(EpigosException) as exc:
-        client.call_api(path=path, method=method)
+        client.make_request(path=path, method=method)
     assert exc.value.status_code == 400
 
 
-def test_client_resouce_methods():
-    api_key = "test"
-    epigos = Epigos(api_key)
-
-    assert isinstance(epigos.classification("model_id"), ClassificationModel)
-    assert isinstance(epigos.object_detection("model_id"), ObjectDetectionModel)
+def test_client_resouce_methods(client: Epigos):
+    assert isinstance(client.classification("model_id"), ClassificationModel)
+    assert isinstance(client.object_detection("model_id"), ObjectDetectionModel)
 
     model_id = None
     with pytest.raises(ValueError):
-        epigos.classification(model_id)
+        client.classification(model_id)
 
     with pytest.raises(ValueError):
-        epigos.object_detection(model_id)
+        client.object_detection(model_id)
