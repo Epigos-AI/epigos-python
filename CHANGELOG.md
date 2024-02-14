@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/Epigos-AI/epigos-python/compare/v1.0.0...v1.1.0) (2024-02-14)
+
+
+### Features
+
+* Add Support for Uploading Single Images and Entire Datasets with Annotations ([#58](https://github.com/Epigos-AI/epigos-python/issues/58)) ([0fb52a0](https://github.com/Epigos-AI/epigos-python/commit/0fb52a094f52f9a4a60ec3137b93501f803e57d5))
+
 ## [1.0.0](https://github.com/Epigos-AI/epigos-python/compare/v0.1.2...v1.0.0) (2023-09-27)
 
 
