@@ -1,4 +1,4 @@
-import typing
+from typing_extensions import Unpack
 
 from epigos import typings
 from epigos.core.base import PredictionModel
@@ -19,7 +19,7 @@ class ObjectDetectionModel(PredictionModel):
         self,
         image_path: str,
         confidence: float = 0.7,
-        **kwargs: typing.Unpack[typings.DetectOptions],
+        **kwargs: Unpack[typings.DetectOptions],
     ) -> ObjectDetection:
         """
         Infers detections based on image from specified model and image path.
