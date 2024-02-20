@@ -76,7 +76,7 @@ class Project:
         annotation_path: typing.Optional[typing.Union[str, Path]] = None,
         batch_name: str = "sdk-upload",
         box_format: BoxFormat = BoxFormat.pascal_voc,
-        **kwargs: typing.Any,
+        **kwargs: typing.Unpack[typings.UploadParamSpec],
     ) -> typing.Dict[str, typing.Any]:
         """
         Upload an image and with or without annotations to the Epigos API.
@@ -119,7 +119,7 @@ class Project:
         batch_name: str = "sdk-upload",
         box_format: BoxFormat = BoxFormat.pascal_voc,
         num_workers: int = 4,
-        **kwargs: typing.Any,
+        **kwargs: typing.Unpack[typings.UploadDatasetParamSpec],
     ) -> typing.Iterator[dict[str, Any]]:
         """
         Upload an entire dataset to Epigos API.

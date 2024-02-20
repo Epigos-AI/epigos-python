@@ -62,3 +62,23 @@ class BoxFormat(str, enum.Enum):
     pascal_voc = "pascal_voc"
     yolo = "yolo"
     coco = "coco"
+
+
+class UploadParamSpec(typing.TypedDict, total=False):
+    """
+    UploadParamSpec optional arguments for project upload.
+    """
+
+    labels_map: typing.Optional[typing.Dict[str, str]]
+    yolo_labels_map: typing.Optional[typing.Dict[int, str]]
+    batch_id: typing.Optional[str]
+    use_folder_as_class_name: bool
+
+
+class UploadDatasetParamSpec(UploadParamSpec, total=False):
+    """
+    UploadDatasetParamSpec optional arguments for project dataset upload.
+    """
+
+    annotation_dir_name: typing.Optional[str]
+    config_file: typing.Optional[str]
