@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/Epigos-AI/epigos-python/compare/v1.1.0...v1.1.1) (2024-02-20)
+
+
+### Bug Fixes
+
+* update input typing for upload and object detection ([#67](https://github.com/Epigos-AI/epigos-python/issues/67)) ([b7c1947](https://github.com/Epigos-AI/epigos-python/commit/b7c194791279abe8f0883a8ba1e3cb29087cb8a3))
+
 ## [1.1.0](https://github.com/Epigos-AI/epigos-python/compare/v1.0.0...v1.1.0) (2024-02-14)
 
 
