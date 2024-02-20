@@ -6,7 +6,6 @@ import respx
 from PIL import Image
 
 from epigos import Epigos
-from epigos.core.object_detection import DetectOptions
 
 ASSETS_PATH = Path(__file__).parent.parent / "assets"
 
@@ -33,7 +32,7 @@ def test_detect_image_url(
         return_value=httpx.Response(200, json=dict(object_detection_prediction))
     )
 
-    pred = model.detect(image_url, options=DetectOptions(annotate=annotate))
+    pred = model.detect(image_url, annotate=annotate)
     assert pred.detections == object_detection_prediction["detections"]
 
 
@@ -55,7 +54,7 @@ def test_detect_local_image(
         return_value=httpx.Response(200, json=dict(object_detection_prediction))
     )
 
-    pred = model.detect(image_path, options=DetectOptions(annotate=annotate))
+    pred = model.detect(image_path, annotate)
     if annotate:
         assert isinstance(pred.get_image(), Image.Image)
     else:
