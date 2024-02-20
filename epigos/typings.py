@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import enum
+import typing
 
 
 class ProjectType(str, enum.Enum):
@@ -34,6 +35,21 @@ class AnnotationCategory(str, enum.Enum):
 
     category = "category"
     bounding_box = "bounding_box"
+
+
+class DetectOptions(typing.TypedDict, total=False):
+    """
+    DetectOptions options used to customize the output.
+
+    :param annotate: If True, it annotates the image with the predicted objects.
+    :param stroke_width: Specify bounding boxes border size.
+    :param show_prob: If True, detected objects will show detection confidence
+        for each object in the image.
+    """
+
+    annotate: bool
+    stroke_width: typing.Optional[int]
+    show_prob: bool
 
 
 class BoxFormat(str, enum.Enum):

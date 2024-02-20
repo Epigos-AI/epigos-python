@@ -1,24 +1,8 @@
-import dataclasses
 import typing
 
+from epigos import typings
 from epigos.core.base import PredictionModel
 from epigos.data_classes.prediction import ObjectDetection
-
-
-@dataclasses.dataclass
-class DetectOptions:
-    """
-    DetectOptions options used to customize the output.
-
-    :param annotate: If True, it annotates the image with the predicted objects.
-    :param stroke_width: Specify bounding boxes border size.
-    :param show_prob: If True, detected objects will show detection confidence
-        for each object in the image.
-    """
-
-    annotate: bool = dataclasses.field(default=True)
-    stroke_width: typing.Optional[int] = dataclasses.field(default=None)
-    show_prob: bool = dataclasses.field(default=True)
 
 
 class ObjectDetectionModel(PredictionModel):
@@ -35,27 +19,28 @@ class ObjectDetectionModel(PredictionModel):
         self,
         image_path: str,
         confidence: float = 0.7,
-        options: typing.Optional[DetectOptions] = None,
+        **kwargs: typing.Unpack[typings.DetectOptions],
     ) -> ObjectDetection:
         """
         Infers detections based on image from specified model and image path.
 
         :param image_path: Path to image (can be local file or remote url).
         :param confidence: Prediction confidence.
-        :param options: Annotation options for the prediction
+        :param kwargs: Annotation options for the prediction
         :return: ObjectDetection object
         """
-        if not options:
-            options = DetectOptions()
+        annotate = kwargs.get("annotate") or True
+        stroke_width = kwargs.get("stroke_width")
+        show_prob = kwargs.get("show_prob") or True
 
         image = self._prepare_image(image_path)
 
         data = {
             "image": image,
             "confidence": confidence,
-            "annotate": options.annotate,
-            "stroke_width": options.stroke_width,
-            "show_prob": options.show_prob,
+            "annotate": annotate,
+            "stroke_width": stroke_width,
+            "show_prob": show_prob,
         }
         url = self._build_url()
         res = self._client.make_post(path=url, json=data)
