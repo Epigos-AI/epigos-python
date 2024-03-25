@@ -242,7 +242,9 @@ def read_yolo_directory(
         if p.suffix.lower() in FILE_EXTENSIONS
     )
     paths = {
-        p: (data_dir / annotations_dir / p.parent.name / f"{p.stem}.txt").resolve()
+        p: (
+            data_dir / p.parent.parent.name / annotations_dir / f"{p.stem}.txt"
+        ).resolve()
         for p in imgs_paths
     }
     return paths, labels_map
@@ -265,6 +267,8 @@ def read_pascal_voc_directory(
         if p.suffix.lower() in FILE_EXTENSIONS
     )
     return {
-        p: (data_dir / annotations_dir / p.parent.name / f"{p.stem}.xml").resolve()
+        p: (
+            data_dir / p.parent.parent.name / annotations_dir / f"{p.stem}.xml"
+        ).resolve()
         for p in imgs_paths
     }

@@ -146,8 +146,8 @@ def yolo_directory():
 
         for stage in ["train", "val"]:
             for class_name, image_files in class_image_files.items():
-                img_dir = base_dir / "images" / stage
-                label_dir = base_dir / "labels" / stage
+                img_dir = base_dir / stage / "images"
+                label_dir = base_dir / stage / "labels"
 
                 img_dir.mkdir(parents=True, exist_ok=True)
                 label_dir.mkdir(parents=True, exist_ok=True)
@@ -175,8 +175,8 @@ def pascal_voc_directory():
 
         for stage in ["train", "val"]:
             for image_file in image_files:
-                img_dir = base_dir / "images" / stage
-                label_dir = base_dir / "Annotations" / stage
+                img_dir = base_dir / stage / "images"
+                label_dir = base_dir / stage / "Annotations"
 
                 img_dir.mkdir(parents=True, exist_ok=True)
                 label_dir.mkdir(parents=True, exist_ok=True)
