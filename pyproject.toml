@@ -72,7 +72,6 @@ ignore-imports = true
 testpaths = "tests"
 filterwarnings = [
     "error",
-    "ignore::pytest.PytestRemovedIn8Warning",
 ]
 
 [tool.mypy]
