@@ -43,7 +43,7 @@ jobs:
         run: poetry build
 
       - name: upload assets
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: ${{ steps.release.outputs.release_created }}
         with:
           tag_name: ${{ steps.release.outputs.tag_name }}
