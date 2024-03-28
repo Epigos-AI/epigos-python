@@ -207,7 +207,7 @@ def mock_upload_api_calls(respx_mock: respx.MockRouter):
             {"id": f"label-{idx}", "name": name} for idx, name in enumerate(labels)
         ]
 
-        respx_mock.post("/upload/").mock(
+        respx_mock.post("/projects/project_id/upload/").mock(
             return_value=httpx.Response(
                 201, json={"uploadUrl": "http://upload", "uri": "s3://bucket/path"}
             )
