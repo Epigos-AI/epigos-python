@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/Epigos-AI/epigos-python/compare/epigos-v0.1.0...epigos-v2.0.1) (2024-03-28)
+
+
+### Miscellaneous Chores
+
+* release 2.0.1 ([391e6ff](https://github.com/Epigos-AI/epigos-python/commit/391e6ff67f45f86c7cb7af958c501c2165688d83))
+
 ## [0.1.0](https://github.com/Epigos-AI/epigos-python/compare/epigos-v0.1.0...epigos-v0.1.0) (2024-03-28)
 
 
