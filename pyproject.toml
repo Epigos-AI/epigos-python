@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "epigos"
-version = "0.1.0"
+version = "2.0.1"
 description = "Epigos AI Python SDK"
 authors = ["Philip Adzanoukpe <philip@epigos.ai>"]
 license = "MIT"
