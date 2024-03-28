@@ -134,7 +134,7 @@ class Uploader:
         content_type = img.get_format_mimetype()  # type: ignore
 
         presigned = self._client.make_post(
-            path="/upload/",
+            path=f"/projects/{self._project_id}/upload/",
             json={"name": image_path.name, "content_type": content_type},
         )
 
