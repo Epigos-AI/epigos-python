@@ -7,7 +7,7 @@ from pybboxes import BoundingBox
 
 from epigos.utils import logger
 
-FILE_EXTENSIONS = (".jpg", ".jpeg", ".png")
+IMAGE_FILE_EXTENSIONS = (".jpg", ".jpeg", ".png")
 
 
 def _extract_bbox_from_element(
@@ -211,7 +211,7 @@ def read_image_folder(data_dir: Path) -> typing.Dict[Path, str]:
     imgs_paths = (
         p.resolve()
         for p in data_dir.glob("**/*")
-        if p.suffix.lower() in FILE_EXTENSIONS
+        if p.suffix.lower() in IMAGE_FILE_EXTENSIONS
     )
     return {p: p.parent.name for p in imgs_paths}
 
@@ -239,12 +239,10 @@ def read_yolo_directory(
     imgs_paths = (
         p.resolve()
         for p in data_dir.glob("**/*")
-        if p.suffix.lower() in FILE_EXTENSIONS
+        if p.suffix.lower() in IMAGE_FILE_EXTENSIONS
     )
     paths = {
-        p: (
-            data_dir / p.parent.parent.name / annotations_dir / f"{p.stem}.txt"
-        ).resolve()
+        p: (p.parent.parent.absolute() / annotations_dir / f"{p.stem}.txt").resolve()
         for p in imgs_paths
     }
     return paths, labels_map
@@ -264,11 +262,9 @@ def read_pascal_voc_directory(
     imgs_paths = (
         p.resolve()
         for p in data_dir.glob("**/*")
-        if p.suffix.lower() in FILE_EXTENSIONS
+        if p.suffix.lower() in IMAGE_FILE_EXTENSIONS
     )
     return {
-        p: (
-            data_dir / p.parent.parent.name / annotations_dir / f"{p.stem}.xml"
-        ).resolve()
+        p: (p.parent.parent.absolute() / annotations_dir / f"{p.stem}.xml").resolve()
         for p in imgs_paths
     }
