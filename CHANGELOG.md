@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.2](https://github.com/Epigos-AI/epigos-python/compare/epigos-v2.0.1...epigos-v2.0.2) (2024-04-15)
+
+
+### Bug Fixes
+
+* upload dataset missing labels path ([dfa185e](https://github.com/Epigos-AI/epigos-python/commit/dfa185ef09dd4e82362f539873868f055d7cf2d7))
+
 ## [2.0.1](https://github.com/Epigos-AI/epigos-python/compare/epigos-v0.1.0...epigos-v2.0.1) (2024-03-28)
 
 
