@@ -7,10 +7,16 @@ import httpx
 from PIL import Image, ImageOps
 
 from epigos import typings
+from epigos.data_classes.dataset import Classification, Detection
+from epigos.dataset.utils import (
+    read_pascal_voc_to_coco,
+    read_single_coco_annotation,
+    read_yolo_to_coco,
+    resize_bounding_box,
+)
 from epigos.typings import BoxFormat
 from epigos.utils import image as img_utils
 from epigos.utils import logger
-from epigos.utils.dataset import read_pascal_voc_to_coco, read_yolo_to_coco
 
 if TYPE_CHECKING:
     from epigos.client import Epigos
@@ -31,13 +37,17 @@ class Uploader:
         self._project_id = project_id
         self._project_type = project_type
 
-    def upload(  # pylint: disable=too-many-arguments
+    def upload(
         self,
         batch_id: str,
         image_path: typing.Union[str, Path],
         annotation_path: typing.Optional[typing.Union[str, Path]] = None,
+        annotations: typing.Optional[
+            typing.Union[typing.List[Classification], typing.List[Detection]]
+        ] = None,
         use_folder_as_class_name: bool = False,
         box_format: BoxFormat = BoxFormat.pascal_voc,
+        label_names: typing.Optional[typing.List[str]] = None,
         labels_map: typing.Optional[typing.Dict[str, str]] = None,
         yolo_labels_map: typing.Optional[typing.Dict[int, str]] = None,
     ) -> typing.Dict[str, typing.Any]:
@@ -45,12 +55,14 @@ class Uploader:
         Upload an image and with or without annotation to the Epigos API.
         :param image_path: Path or directory to images to upload
         :param annotation_path: Path to annotation file to annotate the image
+        :param annotations: List of annotations to annotate the image.
         :param batch_id: ID of batch to upload to within project.
         :param use_folder_as_class_name: Use containing folder of image as class name.
         Only used for classification projects.
         :param box_format: Format of annotation to upload.
         Defaults to `pascal_voc`
-        :param labels_map: Class ID to class name mapping for YOLO annotation.
+        :param label_names: List of class names of annotations
+        :param labels_map: Class ID of label in Epigos AI to class name mapping.
         :param yolo_labels_map: Class ID to label name mapping for YOLO annotation
         :return:
         """
@@ -74,29 +86,38 @@ class Uploader:
             if img.width > DEFAULT_IMAGE_SIZE[0] or img.height > DEFAULT_IMAGE_SIZE[1]:
                 img = ImageOps.contain(img, DEFAULT_IMAGE_SIZE)
 
-            resize_img_size = img.size
-            annotations = self._read_annotations(
-                annotation_path=str(annotation_path),
-                orig_image_size=orig_image_size,
-                resize_img_size=resize_img_size,
-                box_format=box_format,
-                yolo_labels_map=yolo_labels_map,
-            )
+            if annotation_path and not annotations:
+                annotations = self._read_annotations(
+                    image_name=image_path.name,
+                    annotation_path=str(annotation_path),
+                    orig_image_size=orig_image_size,
+                    box_format=box_format,
+                    yolo_labels_map=yolo_labels_map,
+                )
             record = self._upload_image(
                 img,
                 image_path,
                 batch_id=batch_id,
             )
 
-        created_annotations = None
         if annotations:
-            created_annotations = self._create_annotation(
-                record_id=record["id"],
+            processed_annotations = self._prepare_annotations(
+                orig_image_size=orig_image_size,
+                resize_img_size=img.size,
                 annotations=annotations,
+            )
+            if not label_names:
+                label_names = list({d.class_name for d in annotations})
+
+            record["annotations"] = self._create_annotation(
+                record_id=record["id"],
+                annotations=processed_annotations,
+                label_names=label_names,
                 labels_map=labels_map,
             )
+        else:
+            record["annotations"] = []
 
-        record["annotations"] = created_annotations or []
         return record
 
     def create_batch(self, batch_name: str) -> str:
@@ -171,16 +192,15 @@ class Uploader:
         self,
         *,
         record_id: str,
-        annotations: typing.Dict[str, typing.Any],
+        annotations: typing.List[typing.Dict[str, typing.Any]],
+        label_names: typing.List[str],
         labels_map: typing.Optional[typing.Dict[str, str]] = None,
     ) -> typing.Optional[typing.List[typing.Any]]:
 
         payload: dict[str, typing.Any] = {
             "dataset_record_id": record_id,
-            "annotations": annotations["annotations"],
+            "annotations": annotations,
         }
-
-        label_names = annotations["labels"]
 
         if not labels_map:
             labels_map = self.create_labels(label_names)
@@ -196,69 +216,88 @@ class Uploader:
 
     def _read_annotations(
         self,
+        image_name: str,
         annotation_path: str,
         orig_image_size: typing.Tuple[int, int],
-        resize_img_size: typing.Tuple[int, int],
-        **kwargs: typing.Any,
-    ) -> typing.Optional[typing.Dict[str, typing.Any]]:
-        box_format = kwargs.get("box_format") or typings.BoxFormat.pascal_voc
-        yolo_labels_map: typing.Optional[typing.Dict[int, str]] = kwargs.get(
-            "yolo_labels_map"
-        )
-        scale_boxes = orig_image_size != resize_img_size
-
-        img_wdith, img_height = resize_img_size
-        metadata = {"image": {"width": img_wdith, "height": img_height}}
+        box_format: BoxFormat = BoxFormat.pascal_voc,
+        yolo_labels_map: typing.Optional[typing.Dict[int, str]] = None,
+    ) -> typing.Union[typing.List[Classification], typing.List[Detection]]:
 
         if self._project_type == typings.ProjectType.classification:
             # assumes annotation_path is the class name for the image
-            label_names = [annotation_path]
-            annotations = [
-                {
-                    "annotation": {
-                        "category": typings.AnnotationCategory.category,
-                        "metadata": metadata,
-                    },
-                    "label_id": annotation_path,
-                }
-            ]
+            return [Classification(class_name=annotation_path)]
+
+        annotations: typing.List[Detection] = []
+
+        if not img_utils.is_path(annotation_path):
+            logger.warning("No annotations file found: %s!", annotation_path)
+            return annotations
+
+        if box_format == typings.BoxFormat.yolo:
+            annotations = read_yolo_to_coco(
+                annotation_path,
+                image_size=orig_image_size,
+                idx_to_label=yolo_labels_map,
+            )
+        elif box_format == typings.BoxFormat.coco:
+            annotations = read_single_coco_annotation(image_name, annotation_path)
         else:
-            if not img_utils.is_path(annotation_path):
-                logger.warning("No annotations file found: %s!", annotation_path)
-                return None
+            annotations = read_pascal_voc_to_coco(
+                annotation_path,
+            )
 
-            img_scale = (img_wdith, img_height) if scale_boxes else None
-            if box_format == typings.BoxFormat.yolo:
-                raw_annotations = read_yolo_to_coco(
-                    annotation_path,
-                    orig_image_size=orig_image_size,
-                    img_scale=img_scale,
-                    yolo_labels_map=yolo_labels_map,
+        if not annotations:
+            logger.warning(
+                "No annotations available for %s in file: %s!",
+                image_name,
+                annotation_path,
+            )
+
+        return annotations
+
+    @classmethod
+    def _prepare_annotations(
+        cls,
+        orig_image_size: typing.Tuple[int, int],
+        resize_img_size: typing.Tuple[int, int],
+        annotations: typing.Union[typing.List[Classification], typing.List[Detection]],
+    ) -> typing.List[typing.Dict[str, typing.Any]]:
+        scale_boxes = orig_image_size != resize_img_size
+        img_wdith, img_height = resize_img_size
+
+        img_scale = (img_wdith, img_height) if scale_boxes else None
+
+        metadata = {"image": {"width": img_wdith, "height": img_height}}
+        output = []
+        for annot in annotations:
+            if isinstance(annot, Classification):
+                output.append(
+                    {
+                        "annotation": {
+                            "category": typings.AnnotationCategory.category,
+                            "metadata": metadata,
+                        },
+                        "label_id": annot.class_name,
+                    }
                 )
-            else:
-                raw_annotations = read_pascal_voc_to_coco(
-                    annotation_path,
-                    img_scale=img_scale,
+            elif isinstance(annot, Detection):
+                if img_scale:
+                    bbox = resize_bounding_box(annot.bbox, img_scale, orig_image_size)
+                else:
+                    bbox = annot.bbox
+
+                output.append(
+                    {
+                        "annotation": {
+                            "category": typings.AnnotationCategory.bounding_box,
+                            "left": bbox[0],
+                            "top": bbox[1],
+                            "width": bbox[2],
+                            "height": bbox[3],
+                            "metadata": metadata,
+                        },
+                        "label_id": annot.class_name,
+                    }
                 )
 
-            label_names = list(raw_annotations["labels"])
-            annotations = [
-                {
-                    "annotation": {
-                        "category": typings.AnnotationCategory.bounding_box,
-                        "left": box["x"],
-                        "top": box["y"],
-                        "width": box["width"],
-                        "height": box["height"],
-                        "metadata": metadata,
-                    },
-                    "label_id": box["label"],
-                }
-                for box in raw_annotations["boxes"]
-            ]
-
-        if not annotations or not label_names:
-            logger.warning("No annotations found in file: %s!", annotation_path)
-            return None
-
-        return {"labels": label_names, "annotations": annotations}
+        return output

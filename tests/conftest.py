@@ -1,3 +1,4 @@
+import json
 import tempfile
 import typing
 from pathlib import Path
@@ -44,40 +45,45 @@ def object_detection_prediction() -> typing.Dict[str, typing.Any]:
 
 
 @pytest.fixture
-def pascal_voc_annotation(tmp_path) -> Path:
+def pascal_voc_annotation_content() -> str:
     xml_content = """
-        <annotation>
-            <folder>path/to/image</folder>
-            <filename>000001.jpg</filename>
-            <path>000001.jpg</path>
-            <size>
-                <width>500</width>
-                <height>375</height>
-                <depth>3</depth>
-            </size>
-            <object>
-                <name>car</name>
-                <bndbox>
-                    <xmin>179</xmin>
-                    <xmax>231</xmax>
-                    <ymin>85</ymin>
-                    <ymax>144</ymax>
-                </bndbox>
-            </object>
-            <object>
-                <name>person</name>
-                <bndbox>
-                    <xmin>112</xmin>
-                    <xmax>135</xmax>
-                    <ymin>145</ymin>
-                    <ymax>175</ymax>
-                </bndbox>
-            </object>
-        </annotation>
-    """
+            <annotation>
+                <folder>path/to/image</folder>
+                <filename>000001.jpg</filename>
+                <path>000001.jpg</path>
+                <size>
+                    <width>500</width>
+                    <height>375</height>
+                    <depth>3</depth>
+                </size>
+                <object>
+                    <name>car</name>
+                    <bndbox>
+                        <xmin>179</xmin>
+                        <xmax>231</xmax>
+                        <ymin>85</ymin>
+                        <ymax>144</ymax>
+                    </bndbox>
+                </object>
+                <object>
+                    <name>person</name>
+                    <bndbox>
+                        <xmin>112</xmin>
+                        <xmax>135</xmax>
+                        <ymin>145</ymin>
+                        <ymax>175</ymax>
+                    </bndbox>
+                </object>
+            </annotation>
+        """
+    return xml_content
+
+
+@pytest.fixture
+def pascal_voc_annotation(tmp_path, pascal_voc_annotation_content) -> Path:
     temp_file = tmp_path / "test.xml"
     with open(temp_file, "w") as fp:
-        fp.write(xml_content)
+        fp.write(pascal_voc_annotation_content)
     return temp_file
 
 
@@ -118,8 +124,10 @@ def image_dataset_folder():
 
                 for image_file in image_files:
                     img_path = class_dir / image_file
+
+                    img = Image.new("RGB", (100, 100))
                     with open(img_path, "w") as fp:
-                        fp.write("test")
+                        img.save(fp)
 
         yield base_dir
 
@@ -154,8 +162,9 @@ def yolo_directory():
 
                 for image_file in image_files:
                     img_path = img_dir / image_file
+                    img = Image.new("RGB", (100, 100))
                     with open(img_path, "w") as fp:
-                        fp.write("test")
+                        img.save(fp)
 
                     label_path = label_dir / f"{img_path.stem}.txt"
                     with open(label_path, "w") as fp:
@@ -167,7 +176,7 @@ def yolo_directory():
 
 
 @pytest.fixture
-def pascal_voc_directory():
+def pascal_voc_directory(pascal_voc_annotation_content):
     image_files = ["cat1.jpg", "dog1.jpg", "cat2.jpg", "dog2.jpg"]
 
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -176,18 +185,66 @@ def pascal_voc_directory():
         for stage in ["train", "val"]:
             for image_file in image_files:
                 img_dir = base_dir / stage / "images"
-                label_dir = base_dir / stage / "Annotations"
+                label_dir = base_dir / stage / "labels"
 
                 img_dir.mkdir(parents=True, exist_ok=True)
                 label_dir.mkdir(parents=True, exist_ok=True)
 
                 img_path = img_dir / image_file
+                img = Image.new("RGB", (100, 100))
                 with open(img_path, "w") as fp:
-                    fp.write("test")
+                    img.save(fp)
 
                 label_path = label_dir / f"{img_path.stem}.xml"
                 with open(label_path, "w") as fp:
-                    fp.write("<annotation></annotation>")
+                    fp.write(pascal_voc_annotation_content)
+
+        yield base_dir
+
+
+@pytest.fixture
+def coco_directory():
+    image_files = ["cat1.jpg", "dog1.jpg", "cat2.jpg", "dog2.jpg"]
+    labels = ["cat", "dog"]
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        base_dir = Path(temp_dir)
+        categories = [{"id": idx, "name": name} for idx, name in enumerate(labels)]
+        images = []
+        annotations = []
+
+        annotations_idx = 0
+        for idx, image_file in enumerate(image_files):
+            img_path = base_dir / image_file
+            img = Image.new("RGB", (100, 100))
+            with open(img_path, "w") as fp:
+                img.save(fp)
+
+            images.append(
+                {
+                    "id": idx,
+                    "file_name": image_file,
+                    "height": 275,
+                    "width": 490,
+                }
+            )
+            for category in categories:
+                ann = {
+                    "id": annotations_idx,
+                    "image_id": idx,
+                    "category_id": category["id"],
+                    "bbox": [45, 2, 85, 85],
+                }
+                annotations.append(ann)
+                annotations_idx += 1
+
+        dataset = {
+            "categories": categories,
+            "images": images,
+            "annotations": annotations,
+        }
+        with open(base_dir / "coco.json", "w") as fp:
+            json.dump(dataset, fp)
 
         yield base_dir
 
