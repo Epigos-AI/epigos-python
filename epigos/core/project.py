@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 from tqdm import tqdm
-from typing_extensions import Unpack
+from typing_extensions import deprecated
 
 from epigos import typings
 from epigos.data_classes import project as project_data_class
+from epigos.dataset import BaseDataset, ClassificationDataset, DetectionDataset
 from epigos.typings import BoxFormat
-from epigos.utils import dataset as dataset_utils
 from epigos.utils import image as img_utils
 from epigos.utils import logger
 
@@ -75,29 +75,31 @@ class Project:
         image_path: typing.Union[str, Path],
         *,
         annotation_path: typing.Optional[typing.Union[str, Path]] = None,
-        batch_name: str = "sdk-upload",
         box_format: BoxFormat = BoxFormat.pascal_voc,
-        **kwargs: Unpack[typings.UploadParamSpec],
+        batch_name: str = "sdk-upload",
+        batch_id: typing.Optional[str] = None,
+        labels_map: typing.Optional[typing.Dict[str, str]] = None,
+        use_folder_as_class_name: bool = False,
+        yolo_labels_map: typing.Optional[typing.Dict[int, str]] = None,
     ) -> typing.Dict[str, typing.Any]:
         """
         Upload an image and with or without annotations to the Epigos API.
-        :param image_path: Path or directory to images to upload
+        :param image_path: Path or directory to images to upload.
         :param annotation_path: Path to annotation file to annotate the image
-        :param batch_name: name of batch to upload to within project.
-        Defaults to `sdk-upload`
         :param box_format: Format of annotation to upload.
-        Defaults to `pascal_voc`
-        :param kwargs: Additional keyword arguments to pass to function
+        Defaults to `pascal_voc`.
+        :param batch_name: name of batch to upload to within project.
+        Defaults to `sdk-upload`.
+        :param batch_id: ID of batch to upload to within project.
+        :param labels_map: Class ID of label in Epigos AI to class name mapping.
+        :param use_folder_as_class_name: Use containing folder of image as class name.
+        Only used for classification projects.
+        :param yolo_labels_map: Class ID to label name mapping for YOLO annotation.
         :return:
         """
         is_file = img_utils.is_path(str(image_path))
         if not is_file:
             raise RuntimeError(f"Provided path does not exist at {image_path}!")
-
-        labels_map = kwargs.get("labels_map")
-        yolo_labels_map = kwargs.get("yolo_labels_map")
-        batch_id = kwargs.get("batch_id")
-        use_folder_as_class_name = kwargs.get("use_folder_as_class_name") or False
 
         if batch_id is None:
             batch_id = self._uploader.create_batch(batch_name)
@@ -113,75 +115,230 @@ class Project:
         )
         return record
 
-    def upload_dataset(
+    def upload_classification_dataset(
+        self,
+        images_directory: typing.Union[str, Path],
+        batch_name: str = "sdk-upload",
+        num_workers: int = 4,
+    ) -> typing.Iterator[dict[str, Any]]:
+        """
+        Upload dataset containing image classification dataset.
+        Image folder names will be used as class names for the images.
+        :param images_directory: Path to folder containing images
+        :param batch_name: name of batch to upload to within project.
+        Defaults to `sdk-upload`.
+        :param num_workers: Number of cpu workers to use for uploading.
+        :return:
+        """
+        return self._upload_dataset(
+            images_directory,
+            batch_name=batch_name,
+            num_workers=num_workers,
+        )
+
+    def upload_coco_dataset(
+        self,
+        images_directory: typing.Union[str, Path],
+        annotations_path: typing.Union[str, Path],
+        batch_name: str = "sdk-upload",
+        labels_map: typing.Optional[typing.Dict[str, str]] = None,
+        num_workers: int = 4,
+    ) -> typing.Iterator[dict[str, Any]]:
+        """
+        Upload dataset containing COCO annotations and images.
+        :param images_directory: Path to folder containing images
+        :param annotations_path: Path to the singel file containing the COCO annotations
+        :param batch_name: name of batch to upload to within project.
+        Defaults to `sdk-upload`.
+        :param labels_map: Class ID of label in Epigos AI to class name mapping.
+        :param num_workers: Number of cpu workers to use for uploading.
+        :return:
+        """
+        return self._upload_dataset(
+            images_directory,
+            annotations_directory=annotations_path,
+            box_format=BoxFormat.coco,
+            batch_name=batch_name,
+            labels_map=labels_map,
+            num_workers=num_workers,
+        )
+
+    def upload_pascal_voc_dataset(
+        self,
+        images_directory: typing.Union[str, Path],
+        annotations_directory: typing.Union[str, Path],
+        batch_name: str = "sdk-upload",
+        labels_map: typing.Optional[typing.Dict[str, str]] = None,
+        num_workers: int = 4,
+    ) -> typing.Iterator[dict[str, Any]]:
+        """
+        Upload dataset containing PASCAL VOC annotations and images.
+        :param images_directory: Path to folder containing images.
+        :param annotations_directory: Path to directory containing
+        Pascal VOC annotations.
+        :param batch_name: name of batch to upload to within project.
+        Defaults to `sdk-upload`.
+        :param labels_map: Class ID of label in Epigos AI to class name mapping.
+        :param num_workers: Number of cpu workers to use for uploading.
+        :return:
+        """
+        return self._upload_dataset(
+            images_directory,
+            annotations_directory=annotations_directory,
+            box_format=BoxFormat.pascal_voc,
+            batch_name=batch_name,
+            labels_map=labels_map,
+            num_workers=num_workers,
+        )
+
+    def upload_yolo_dataset(
+        self,
+        images_directory: typing.Union[str, Path],
+        annotations_directory: typing.Union[str, Path],
+        data_yaml_path: typing.Optional[typing.Union[str, Path]] = None,
+        batch_name: str = "sdk-upload",
+        labels_map: typing.Optional[typing.Dict[str, str]] = None,
+        num_workers: int = 4,
+    ) -> typing.Iterator[dict[str, Any]]:
+        """
+        Upload dataset containing YOLO annotations and images.
+        :param images_directory: Path to folder containing images
+        :param annotations_directory: Path to directory containing YOLO annotations
+        :param data_yaml_path: Path to YOLO data configuration file.
+        :param batch_name: name of batch to upload to within project.
+        Defaults to `sdk-upload`.
+        :param labels_map: Class ID of label in Epigos AI to class name mapping.
+        :param num_workers: Number of cpu workers to use for uploading.
+        :return:
+        """
+        return self._upload_dataset(
+            images_directory,
+            annotations_directory=annotations_directory,
+            data_yaml_path=data_yaml_path,
+            box_format=BoxFormat.yolo,
+            batch_name=batch_name,
+            labels_map=labels_map,
+            num_workers=num_workers,
+        )
+
+    @deprecated(
+        "Use `upload_coco_dataset`, `upload_yolo_dataset`, `upload_pascal_voc_dataset` "
+        "or `upload_classification_dataset` instead."
+    )
+    def upload_dataset(  # pylint: disable=too-many-arguments
         self,
         data_dir: typing.Union[str, Path],
         *,
-        batch_name: str = "sdk-upload",
+        annotations_directory: typing.Optional[typing.Union[str, Path]] = None,
         box_format: BoxFormat = BoxFormat.pascal_voc,
+        data_yaml_path: typing.Optional[typing.Union[str, Path]] = None,
+        batch_name: str = "sdk-upload",
+        labels_map: typing.Optional[typing.Dict[str, str]] = None,
         num_workers: int = 4,
-        **kwargs: Unpack[typings.UploadDatasetParamSpec],
     ) -> typing.Iterator[dict[str, Any]]:
         """
         Upload an entire dataset to Epigos API.
         :param data_dir: Path to directory containing images and annotations to upload.
+        :param annotations_directory: Path to directory containing
+        annotations to upload.
         :param batch_name: name of batch to upload to within project.
-        Defaults to `sdk-upload`
+        Defaults to `sdk-upload`.
         :param box_format: Format of annotation to upload.
-        Defaults to `pascal_voc` and only used for object detection projects
-        :param num_workers: Number of cpu workers to use for uploading
+        Defaults to `pascal_voc` and only used for object detection projects.
+        :param data_yaml_path: Path to YOLO data configuration file.
+        :param labels_map: Class ID of label in Epigos AI to class name mapping.
+        :param num_workers: Number of cpu workers to use for uploading.
+        :return:
+        """
+        return self._upload_dataset(
+            data_dir=data_dir,
+            annotations_directory=annotations_directory,
+            box_format=box_format,
+            data_yaml_path=data_yaml_path,
+            batch_name=batch_name,
+            labels_map=labels_map,
+            num_workers=num_workers,
+        )
+
+    def _upload_dataset(  # pylint: disable=too-many-arguments
+        self,
+        data_dir: typing.Union[str, Path],
+        *,
+        annotations_directory: typing.Optional[typing.Union[str, Path]] = None,
+        box_format: BoxFormat = BoxFormat.pascal_voc,
+        data_yaml_path: typing.Optional[typing.Union[str, Path]] = None,
+        batch_name: str = "sdk-upload",
+        labels_map: typing.Optional[typing.Dict[str, str]] = None,
+        num_workers: int = 4,
+    ) -> typing.Iterator[dict[str, Any]]:
+        """
+        Upload an entire dataset to Epigos API.
+        :param data_dir: Path to directory containing images and annotations to upload.
+        :param annotations_directory: Path to directory containing
+        annotations to upload.
+        :param batch_name: name of batch to upload to within project.
+        Defaults to `sdk-upload`.
+        :param box_format: Format of annotation to upload.
+        Defaults to `pascal_voc` and only used for object detection projects.
+        :param data_yaml_path: Path to YOLO data configuration file.
+        :param labels_map: Class ID of label in Epigos AI to class name mapping.
+        :param num_workers: Number of cpu workers to use for uploading.
         :return:
         """
         if not img_utils.is_path(str(data_dir)):
             raise RuntimeError(f"Provided path does not exist at {data_dir}!")
 
         data_dir = Path(data_dir)
-        batch_id = kwargs.get("batch_id")
-        labels_map = kwargs.get("labels_map")
 
-        imgs, yolo_labels_map = self._read_dataset_directory(
+        ds = self._read_dataset_directory(
             data_dir,
             box_format=box_format,
-            annotation_dir_name=kwargs.get("annotation_dir_name") or "labels",
-            config_file=kwargs.get("config_file") or "data.yaml",
+            annotations_directory_path=Path(
+                annotations_directory or data_dir / "labels"
+            ),
+            data_yaml_path=Path(data_yaml_path or data_dir / "data.yaml"),
         )
+        num_images = len(ds)
 
-        if not imgs:
+        if not num_images > 0:
             raise RuntimeError(
                 "Could not read any images or annotations in the directory provided"
             )
 
-        if not batch_id:
-            batch_id = self._uploader.create_batch(batch_name)
+        batch_id = self._uploader.create_batch(batch_name)
 
-        if not labels_map and yolo_labels_map:
-            labels_map = self._uploader.create_labels(list(yolo_labels_map.values()))
+        if not labels_map and ds.classes:
+            labels_map = self._uploader.create_labels(ds.classes)
 
         def _upload_file(
-            img_path: Path, annotation_path: typing.Union[str, Path]
+            img_path: Path, img_annotations: typing.List[typing.Any]
         ) -> typing.Dict[str, typing.Any]:
+
             record: typing.Dict[str, typing.Any] = {
                 "img_path": img_path,
-                "annotation_path": annotation_path,
             }
             try:
-                record["response"] = self.upload(
-                    image_path=img_path,
-                    annotation_path=annotation_path,
+                resp = self._uploader.upload(
+                    batch_id,
+                    img_path,
+                    annotations=img_annotations,
                     box_format=box_format,
-                    yolo_labels_map=yolo_labels_map,
                     labels_map=labels_map,
-                    batch_id=batch_id,
+                    label_names=ds.classes,
                 )
+                record["response"] = resp
             except httpx.HTTPError:
                 logger.exception(
                     "Error occured while uploading file: %s", img_path, exc_info=True
                 )
             return record
 
-        with tqdm(total=len(imgs), desc="Uploading datasets", colour="green") as pbar:
+        with tqdm(total=num_images, desc="Uploading datasets", colour="green") as pbar:
             with ThreadPoolExecutor(max_workers=num_workers) as executor:
-                for result in executor.map(_upload_file, imgs.keys(), imgs.values()):
+                for result in executor.map(
+                    lambda p: _upload_file(*p),
+                    ds,
+                ):
                     pbar.update()
                     yield result
 
@@ -189,29 +346,20 @@ class Project:
         self,
         data_dir: Path,
         *,
-        annotation_dir_name: str,
-        config_file: str,
+        annotations_directory_path: Path,
+        data_yaml_path: Path,
         box_format: BoxFormat,
-    ) -> typing.Tuple[
-        typing.Union[typing.Dict[Path, Path], typing.Dict[Path, str]],
-        typing.Optional[typing.Dict[int, str]],
-    ]:
+    ) -> BaseDataset:
         """
         Reads dataset directory and returns a mapping for image files
         and its corresponding annotations file.
         """
-        yolo_labels_map = None
-        imgs: typing.Union[typing.Dict[Path, Path], typing.Dict[Path, str]]
         if self.is_object_detection:
-            if box_format == typings.BoxFormat.pascal_voc:
-                imgs = dataset_utils.read_pascal_voc_directory(
-                    data_dir, annotation_dir_name
-                )
-            else:
-                imgs, yolo_labels_map = dataset_utils.read_yolo_directory(
-                    data_dir, config_file, annotation_dir_name
-                )
-        else:
-            imgs = dataset_utils.read_image_folder(data_dir)
+            return DetectionDataset.from_format(
+                box_format=box_format,
+                images_directory_path=data_dir,
+                annotations_directory_path=annotations_directory_path,
+                data_yaml_path=data_yaml_path,
+            )
 
-        return imgs, yolo_labels_map
+        return ClassificationDataset.from_folder(data_dir)

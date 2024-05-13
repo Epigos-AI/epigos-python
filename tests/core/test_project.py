@@ -1,16 +1,15 @@
+import logging
 from unittest.mock import MagicMock, call
 
 import httpx
 import pytest
 import respx
+import yaml
 
 from epigos import Epigos, typings
 from epigos.core.uploader import Uploader
-from epigos.utils.dataset import (
-    read_image_folder,
-    read_pascal_voc_directory,
-    read_yolo_directory,
-)
+from epigos.dataset import ClassificationDataset, DetectionDataset
+from epigos.utils import logger
 
 
 @pytest.fixture
@@ -153,6 +152,35 @@ def test_project_upload_object_detection_pascal_annotation(
     )
 
 
+@pytest.mark.parametrize("image_name", ["cat1.jpg", "dog1.jpg", "cat2.jpg", "dog2.jpg"])
+@pytest.mark.respx(assert_all_called=True, assert_all_mocked=True)
+def test_project_upload_object_detection_coco_annotation(
+    client: Epigos, mock_project, coco_directory, image_name
+):
+    mock_project(typings.ProjectType.object_detection)
+    project = client.project("project_id")
+
+    uploader = MagicMock(spec=Uploader)
+    project._uploader = uploader
+
+    image_path = coco_directory / image_name
+    annotation_path = coco_directory / "coco.json"
+    project.upload(
+        image_path, annotation_path=annotation_path, box_format=typings.BoxFormat.coco
+    )
+
+    uploader.create_batch.assert_called_once_with("sdk-upload")
+    uploader.upload.assert_called_once_with(
+        uploader.create_batch.return_value,
+        image_path,
+        annotation_path=annotation_path,
+        use_folder_as_class_name=False,
+        box_format=typings.BoxFormat.coco,
+        labels_map=None,
+        yolo_labels_map=None,
+    )
+
+
 @pytest.mark.respx(assert_all_called=True, assert_all_mocked=True)
 def test_project_upload_object_detection_yolo_annotation(
     client: Epigos,
@@ -234,7 +262,7 @@ def test_project_upload_dataset_invalid_directory(
     with pytest.raises(
         RuntimeError, match="Provided path does not exist at invalid/folder!"
     ):
-        tuple(project.upload_dataset("invalid/folder"))
+        tuple(project._upload_dataset("invalid/folder"))
 
 
 @pytest.mark.respx(assert_all_called=True, assert_all_mocked=True)
@@ -253,6 +281,9 @@ def test_project_upload_dataset_empty_directory(
     box_format: typings.BoxFormat,
     tmp_path,
 ):
+    with open(tmp_path / "data.yaml", "w") as fp:
+        yaml.safe_dump({}, fp)
+
     mock_project(project_type)
     project = client.project("project_id")
 
@@ -262,7 +293,7 @@ def test_project_upload_dataset_empty_directory(
         RuntimeError,
         match="Could not read any images or annotations in the directory provided",
     ):
-        tuple(project.upload_dataset(tmp_path, box_format=box_format))
+        tuple(project._upload_dataset(tmp_path, box_format=box_format))
 
     uploader.create_batch.assert_not_called()
     uploader.create_labels.assert_not_called()
@@ -270,10 +301,45 @@ def test_project_upload_dataset_empty_directory(
 
 
 @pytest.mark.respx(assert_all_called=True, assert_all_mocked=True)
-def test_project_upload_classification_dataset(
+@pytest.mark.parametrize(
+    "project_type",
+    [typings.ProjectType.classification, typings.ProjectType.object_detection],
+)
+@pytest.mark.parametrize(
+    "box_format",
+    [typings.BoxFormat.pascal_voc, typings.BoxFormat.yolo],
+)
+def test_project_upload_dataset_deprecated(
     client: Epigos,
     mock_project,
-    image_dataset_folder,
+    project_type: typings.ProjectType,
+    box_format: typings.BoxFormat,
+    tmp_path,
+):
+    with open(tmp_path / "data.yaml", "w") as fp:
+        yaml.safe_dump({}, fp)
+
+    mock_project(project_type)
+    project = client.project("project_id")
+
+    uploader = MagicMock(spec=Uploader)
+    project._uploader = uploader
+    with pytest.raises(
+        DeprecationWarning,
+        match="Use `upload_coco_dataset`, `upload_yolo_dataset`, `upload_pascal_voc_dataset` or "
+        "`upload_classification_dataset` instead.",
+    ):
+        tuple(project.upload_dataset(tmp_path, box_format=box_format))
+
+    uploader.create_batch.assert_not_called()
+    uploader.create_labels.assert_not_called()
+    uploader.upload.assert_not_called()
+
+
+@pytest.mark.parametrize("split", ["train", "val"])
+@pytest.mark.respx(assert_all_called=True, assert_all_mocked=True)
+def test_project_upload_classification_dataset(
+    client: Epigos, mock_project, image_dataset_folder, split
 ):
     mock_project(typings.ProjectType.classification)
     project = client.project("project_id")
@@ -281,68 +347,36 @@ def test_project_upload_classification_dataset(
     uploader = MagicMock(spec=Uploader)
     project._uploader = uploader
 
-    recs = tuple(project.upload_dataset(image_dataset_folder))
+    data_dir = image_dataset_folder / split
+    recs = tuple(project.upload_classification_dataset(data_dir))
 
-    assert len(recs) == 10
+    assert len(recs) == 5
     uploader.create_batch.assert_called_once_with("sdk-upload")
 
-    image_mapping = read_image_folder(image_dataset_folder)
-    assert uploader.upload.call_count == len(image_mapping)
+    ds = ClassificationDataset.from_folder(data_dir)
+
+    uploader.create_labels.assert_called_once_with(ds.classes)
+
+    assert uploader.upload.call_count == len(ds)
+
     calls = [
         call(
             uploader.create_batch.return_value,
             img,
-            annotation_path=annot,
-            use_folder_as_class_name=False,
+            annotations=annots,
             box_format=typings.BoxFormat.pascal_voc,
-            labels_map=None,
-            yolo_labels_map=None,
+            labels_map=uploader.create_labels.return_value,
+            label_names=ds.classes,
         )
-        for img, annot in image_mapping.items()
+        for img, annots in ds
     ]
     uploader.upload.assert_has_calls(calls, any_order=True)
 
 
-@pytest.mark.respx(assert_all_called=True, assert_all_mocked=True)
-def test_project_upload_classification_dataset_with_batch_id(
-    client: Epigos,
-    mock_project,
-    image_dataset_folder,
-):
-    mock_project(typings.ProjectType.classification)
-    project = client.project("project_id")
-
-    uploader = MagicMock(spec=Uploader)
-    project._uploader = uploader
-
-    batch_id = "batch-id"
-    recs = tuple(project.upload_dataset(image_dataset_folder, batch_id=batch_id))
-
-    assert len(recs) == 10
-    uploader.create_batch.assert_not_called()
-
-    image_mapping = read_image_folder(image_dataset_folder)
-    assert uploader.upload.call_count == len(image_mapping)
-    calls = [
-        call(
-            batch_id,
-            img,
-            annotation_path=annot,
-            use_folder_as_class_name=False,
-            box_format=typings.BoxFormat.pascal_voc,
-            labels_map=None,
-            yolo_labels_map=None,
-        )
-        for img, annot in image_mapping.items()
-    ]
-    uploader.upload.assert_has_calls(calls, any_order=True)
-
-
+@pytest.mark.parametrize("split", ["train", "val"])
 @pytest.mark.respx(assert_all_called=True, assert_all_mocked=True)
 def test_project_upload_object_detection_pascal_annotation_dataset(
-    client: Epigos,
-    mock_project,
-    pascal_voc_directory,
+    client: Epigos, mock_project, pascal_voc_directory, split
 ):
     mock_project(typings.ProjectType.object_detection)
     project = client.project("project_id")
@@ -350,36 +384,43 @@ def test_project_upload_object_detection_pascal_annotation_dataset(
     uploader = MagicMock(spec=Uploader)
     project._uploader = uploader
 
+    images_dir = pascal_voc_directory / split / "images"
+    annotations_directory_path = pascal_voc_directory / split / "labels"
+
     recs = tuple(
-        project.upload_dataset(pascal_voc_directory, annotation_dir_name="Annotations")
+        project.upload_pascal_voc_dataset(
+            images_dir, annotations_directory=annotations_directory_path
+        )
     )
 
-    assert len(recs) == 8
+    assert len(recs) == 4
     uploader.create_batch.assert_called_once_with("sdk-upload")
 
-    image_mapping = read_pascal_voc_directory(pascal_voc_directory)
+    ds = DetectionDataset.from_pascal_voc(
+        images_directory_path=images_dir,
+        annotations_directory_path=annotations_directory_path,
+    )
+    uploader.create_labels.assert_called_once_with(ds.classes)
 
-    assert uploader.upload.call_count == len(image_mapping)
+    assert uploader.upload.call_count == len(ds)
     calls = [
         call(
             uploader.create_batch.return_value,
             img,
-            annotation_path=annot,
-            use_folder_as_class_name=False,
+            annotations=annot,
             box_format=typings.BoxFormat.pascal_voc,
-            labels_map=None,
-            yolo_labels_map=None,
+            labels_map=uploader.create_labels.return_value,
+            label_names=ds.classes,
         )
-        for img, annot in image_mapping.items()
+        for img, annot in ds
     ]
     uploader.upload.assert_has_calls(calls, any_order=True)
 
 
+@pytest.mark.parametrize("split", ["train", "val"])
 @pytest.mark.respx(assert_all_called=True, assert_all_mocked=True)
 def test_project_upload_object_detection_yolo_annotation_dataset(
-    client: Epigos,
-    mock_project,
-    yolo_directory,
+    client: Epigos, mock_project, yolo_directory, split
 ):
     mock_project(typings.ProjectType.object_detection)
     project = client.project("project_id")
@@ -387,41 +428,48 @@ def test_project_upload_object_detection_yolo_annotation_dataset(
     uploader = MagicMock(spec=Uploader)
     project._uploader = uploader
 
-    config_file = "data.yaml"
+    data_yaml_path = yolo_directory / "data.yaml"
+    images_dir = yolo_directory / split / "images"
+    annotations_directory_path = yolo_directory / split / "labels"
+
     recs = tuple(
-        project.upload_dataset(
-            yolo_directory, box_format=typings.BoxFormat.yolo, config_file=config_file
+        project.upload_yolo_dataset(
+            images_dir,
+            annotations_directory=annotations_directory_path,
+            data_yaml_path=data_yaml_path,
         )
     )
 
-    assert len(recs) == 10
+    assert len(recs) == 5
     uploader.create_batch.assert_called_once_with("sdk-upload")
 
-    img_paths, yolo_labels_map = read_yolo_directory(yolo_directory, config_file)
+    ds = DetectionDataset.from_yolo(
+        images_directory_path=images_dir,
+        annotations_directory_path=annotations_directory_path,
+        data_yaml_path=data_yaml_path,
+    )
+    uploader.create_labels.assert_called_once_with(ds.classes)
 
-    uploader.create_labels.assert_called_once_with(list(yolo_labels_map.values()))
+    assert uploader.upload.call_count == len(ds)
 
-    assert uploader.upload.call_count == len(img_paths)
     calls = [
         call(
             uploader.create_batch.return_value,
             img,
-            annotation_path=annot,
-            use_folder_as_class_name=False,
+            annotations=annot,
             box_format=typings.BoxFormat.yolo,
             labels_map=uploader.create_labels.return_value,
-            yolo_labels_map=yolo_labels_map,
+            label_names=ds.classes,
         )
-        for img, annot in img_paths.items()
+        for img, annot in ds
     ]
     uploader.upload.assert_has_calls(calls, any_order=True)
 
 
+@pytest.mark.parametrize("split", ["train", "val"])
 @pytest.mark.respx(assert_all_called=True, assert_all_mocked=True)
 def test_project_upload_object_detection_yolo_annotation_dataset_with_labels_map(
-    client: Epigos,
-    mock_project,
-    yolo_directory,
+    client: Epigos, mock_project, yolo_directory, split
 ):
     mock_project(typings.ProjectType.object_detection)
     project = client.project("project_id")
@@ -429,35 +477,118 @@ def test_project_upload_object_detection_yolo_annotation_dataset_with_labels_map
     uploader = MagicMock(spec=Uploader)
     project._uploader = uploader
 
-    config_file = "data.yaml"
-    img_paths, yolo_labels_map = read_yolo_directory(yolo_directory, config_file)
-    labels_map = {n: f"label-{n}" for n in yolo_labels_map.values()}
+    data_yaml_path = yolo_directory / "data.yaml"
+    images_dir = yolo_directory / split / "images"
+    annotations_directory_path = yolo_directory / split / "labels"
 
+    ds = DetectionDataset.from_yolo(
+        images_directory_path=images_dir,
+        annotations_directory_path=annotations_directory_path,
+        data_yaml_path=data_yaml_path,
+    )
+    labels_map = {n: f"label-{n}" for n in ds.classes}
     recs = tuple(
-        project.upload_dataset(
-            yolo_directory,
-            box_format=typings.BoxFormat.yolo,
-            config_file=config_file,
+        project.upload_yolo_dataset(
+            images_dir,
+            annotations_directory=annotations_directory_path,
+            data_yaml_path=data_yaml_path,
             labels_map=labels_map,
         )
     )
 
-    assert len(recs) == 10
+    assert len(recs) == 5
     uploader.create_batch.assert_called_once_with("sdk-upload")
 
     uploader.create_labels.assert_not_called()
 
-    assert uploader.upload.call_count == len(img_paths)
+    assert uploader.upload.call_count == len(ds)
+
     calls = [
         call(
             uploader.create_batch.return_value,
             img,
-            annotation_path=annot,
-            use_folder_as_class_name=False,
+            annotations=annot,
             box_format=typings.BoxFormat.yolo,
             labels_map=labels_map,
-            yolo_labels_map=yolo_labels_map,
+            label_names=ds.classes,
         )
-        for img, annot in img_paths.items()
+        for img, annot in ds
     ]
     uploader.upload.assert_has_calls(calls, any_order=True)
+
+
+@pytest.mark.respx(assert_all_called=True, assert_all_mocked=True)
+def test_project_upload_object_detection_coco_annotation_dataset(
+    client: Epigos, mock_project, coco_directory
+):
+    mock_project(typings.ProjectType.object_detection)
+    project = client.project("project_id")
+
+    uploader = MagicMock(spec=Uploader)
+    project._uploader = uploader
+
+    annotations_path = coco_directory / "coco.json"
+
+    recs = tuple(
+        project.upload_coco_dataset(
+            coco_directory,
+            annotations_path=annotations_path,
+        )
+    )
+
+    assert len(recs) == 4
+    uploader.create_batch.assert_called_once_with("sdk-upload")
+
+    ds = DetectionDataset.from_coco(
+        images_directory_path=coco_directory,
+        annotations_path=annotations_path,
+    )
+    uploader.create_labels.assert_called_once_with(ds.classes)
+
+    assert uploader.upload.call_count == len(ds)
+
+    calls = [
+        call(
+            uploader.create_batch.return_value,
+            img,
+            annotations=annot,
+            box_format=typings.BoxFormat.coco,
+            labels_map=uploader.create_labels.return_value,
+            label_names=ds.classes,
+        )
+        for img, annot in ds
+    ]
+    uploader.upload.assert_has_calls(calls, any_order=True)
+
+
+@pytest.mark.respx(assert_all_called=True, assert_all_mocked=True)
+def test_project_upload_dataset_error(
+    client: Epigos, mock_project, coco_directory, caplog
+):
+    mock_project(typings.ProjectType.object_detection)
+    project = client.project("project_id")
+
+    uploader = MagicMock(
+        spec=Uploader, **{"upload.side_effect": httpx.HTTPError("Some http error")}
+    )
+    project._uploader = uploader
+    annotations_path = coco_directory / "coco.json"
+    ds = DetectionDataset.from_coco(
+        images_directory_path=coco_directory,
+        annotations_path=annotations_path,
+    )
+
+    with caplog.at_level(logging.ERROR, logger=logger.name):
+        records = list(
+            project.upload_coco_dataset(
+                coco_directory, annotations_path=annotations_path
+            )
+        )
+
+        assert len(records) == len(ds)
+        for record in records:
+            assert "response" not in record
+            assert (
+                "Error occured while uploading file: %s" % record["img_path"]
+                in caplog.text
+            )

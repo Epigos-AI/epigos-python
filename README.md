@@ -48,6 +48,7 @@ Manage project and upload dataset into your project using the  `Project ID`.
 
 ```python
 import epigos
+from epigos.typings import BoxFormat
 
 client = epigos.Epigos("api_key")
 
@@ -55,11 +56,15 @@ client = epigos.Epigos("api_key")
 project = client.project("project_id")
 
 # upload image with Pascal VOC annotation
-record = project.upload("path/to/image.jpg", annotation_path="path/to/image.xml", box_format="pascal_voc")
+record = project.upload("path/to/image.jpg", annotation_path="path/to/image.xml", box_format=BoxFormat.pascal_voc)
+print(record)
+
+# upload image with COCO annotation
+record = project.upload("path/to/image.jpg", annotation_path="path/to/coco.json", box_format=BoxFormat.coco)
 print(record)
 
 # upload image with YOLO annotation
-record = project.upload("path/to/image.jpg", annotation_path="path/to/image.txt", box_format="yolo")
+record = project.upload("path/to/image.jpg", annotation_path="path/to/image.txt", box_format=BoxFormat.yolo)
 print(record)
 ```
 
@@ -73,12 +78,26 @@ client = epigos.Epigos("api_key")
 # load project
 project = client.project("project_id")
 
+# upload COCO annotation dataset
+records = project.upload_coco_dataset(
+    images_directory="path/to/dataset/train/images",
+    annotations_path="path/to/dataset/train/coco.json",
+)
+print(tuple(records))
+
 # upload Pascal VOC annotation dataset
-records = project.upload_dataset("path/to/folder", box_format="pascal_voc")
+records = project.upload_pascal_voc_dataset(
+    images_directory="path/to/dataset/train/images",
+    annotations_directory="path/to/dataset/train/labels",
+)
 print(tuple(records))
 
 # upload YOLO annotation dataset
-records = project.upload_dataset("path/to/folder", box_format="yolo")
+records = project.upload_yolo_dataset(
+    images_directory="path/to/dataset/train/images",
+    annotations_directory="path/to/dataset/train/labels",
+    data_yaml_path="path/to/dataset/data.yaml",
+)
 print(tuple(records))
 ```
 

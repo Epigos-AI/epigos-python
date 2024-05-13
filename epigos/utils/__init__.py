@@ -25,7 +25,7 @@ def get_logger(name: str = "epigos-ai", verbose: bool = EPIGOS_DEBUG) -> logging
 
     # add handler to logger
     log.addHandler(handler)
-    log.propagate = False
+    log.propagate = True
     return log
 
 
