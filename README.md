@@ -56,15 +56,27 @@ client = epigos.Epigos("api_key")
 project = client.project("project_id")
 
 # upload image with Pascal VOC annotation
-record = project.upload("path/to/image.jpg", annotation_path="path/to/image.xml", box_format=BoxFormat.pascal_voc)
+record = project.upload(
+    "path/to/image.jpg",
+    annotation_path="path/to/image.xml",
+    box_format=BoxFormat.pascal_voc
+)
 print(record)
 
 # upload image with COCO annotation
-record = project.upload("path/to/image.jpg", annotation_path="path/to/coco.json", box_format=BoxFormat.coco)
+record = project.upload(
+    "path/to/image.jpg",
+    annotation_path="path/to/coco.json",
+    box_format=BoxFormat.coco
+)
 print(record)
 
 # upload image with YOLO annotation
-record = project.upload("path/to/image.jpg", annotation_path="path/to/image.txt", box_format=BoxFormat.yolo)
+record = project.upload(
+    "path/to/image.jpg",
+    annotation_path="path/to/image.txt",
+    box_format=BoxFormat.yolo
+)
 print(record)
 ```
 
