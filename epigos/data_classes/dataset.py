@@ -10,7 +10,7 @@ class Detection:
 
     bbox: typing.Tuple[int, int, int, int]
     class_name: str
-    class_id: int | None = None
+    class_id: typing.Optional[int] = None
 
 
 @dataclasses.dataclass
