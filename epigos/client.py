@@ -2,36 +2,15 @@ import typing
 from json import JSONDecodeError
 
 import httpx
+import tenacity
 
 from .__version__ import __version__
 from .core import ClassificationModel, ObjectDetectionModel, Project
+from .exceptions import EpigosException
+from .utils import logger
 
 BASE_API = "https://api.epigos.ai"
-
-
-class EpigosException(Exception):
-    """
-    Epigos Exception
-
-    There was an error returned from making request to Epigos AI
-
-    :param message: response status message received from api
-    :param details: response error details.
-    :param status_code: HTTP status code received from request.
-    """
-
-    def __init__(
-        self,
-        message: typing.Optional[typing.Any],
-        details: typing.Optional[typing.Any],
-        status_code: int,
-    ) -> None:
-        super().__init__(
-            f"Error Reason: {message} \n Error Details: {details} "
-            f"\n HTTP Status Code: {status_code}"
-        )
-        self.status_code = status_code
-        self.details = details
+RETRY_STATUS_CODES = [502, 503, 504]
 
 
 class Epigos:
@@ -43,9 +22,16 @@ class Epigos:
     :param api_key: Your epigos.ai workspace api key
     :param base_url: Base url to the epigos api.
     :param timeout: HTTP request timeout in seconds. Defaults to 15 seconds.
+    :param retries: Number of times to retry requests. Defaults to 3.
     """
 
-    def __init__(self, api_key: str, base_url: str = BASE_API, timeout: float = 15.0):
+    def __init__(
+        self,
+        api_key: str,
+        base_url: str = BASE_API,
+        timeout: float = 15.0,
+        retries: int = 3,
+    ):
         self._api_key = api_key
         self.client = httpx.Client(
             base_url=httpx.URL(base_url),
@@ -56,6 +42,8 @@ class Epigos:
                 "X-Client-Sdk": f"Epigos-SDK/Python; Version: {__version__}",
             },
         )
+        self.retry_max_attempts = retries
+        self._retry: typing.Optional[tenacity.RetryCallState] = None
 
     @staticmethod
     def _deserialize(
@@ -98,10 +86,28 @@ class Epigos:
         :param params: Query parameters in the url
         :returns: Returns the response data from the api
         """
-        response = self.client.request(
-            method, path, params=httpx.QueryParams(params), json=json, **kwargs
+        retryer = tenacity.Retrying(
+            stop=tenacity.stop_after_attempt(self.retry_max_attempts),
+            wait=tenacity.wait_random_exponential(multiplier=1, max=15),
+            reraise=True,
+            retry=tenacity.retry_if_exception(
+                lambda exc: isinstance(exc, EpigosException)
+                and exc.status_code in RETRY_STATUS_CODES
+            ),
+            before_sleep=tenacity.before_sleep_log(logger, logger.level),
         )
-        return self._deserialize(response)
+        for attempt in retryer:
+            with attempt:
+                attempt.retry_state.fn = self.make_request  # type: ignore[assignment]
+                self._retry = attempt.retry_state
+                response = self.client.request(
+                    method,
+                    path,
+                    params=httpx.QueryParams(params),
+                    json=json,
+                    **kwargs,
+                )
+                return self._deserialize(response)
 
     def make_post(
         self,

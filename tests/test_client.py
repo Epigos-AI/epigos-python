@@ -4,6 +4,7 @@ import respx
 
 from epigos import ClassificationModel, Epigos, EpigosException, ObjectDetectionModel
 from epigos.__version__ import __version__
+from epigos.client import RETRY_STATUS_CODES
 
 
 def test_client_and_headers(client: Epigos):
@@ -55,6 +56,7 @@ def test_client_can_call_api_exception(
 
     assert exc.value.details == output["details"]
     assert exc.value.status_code == 400
+    assert client._retry.attempt_number == 1
 
 
 @pytest.mark.parametrize("path,method", [("/foo", "post"), ("/foo", "get")])
@@ -67,6 +69,7 @@ def test_client_can_call_api_exception_non_json_response(
     with pytest.raises(EpigosException) as exc:
         client.make_request(path=path, method=method)
     assert exc.value.status_code == 400
+    assert client._retry.attempt_number == 1
 
 
 def test_client_resouce_methods(client: Epigos):
@@ -79,3 +82,23 @@ def test_client_resouce_methods(client: Epigos):
 
     with pytest.raises(ValueError):
         client.object_detection(model_id)
+
+
+@pytest.mark.parametrize("status_code", RETRY_STATUS_CODES)
+def test_client_can_call_api_retry_on_exception(
+    client: Epigos, respx_mock: respx.MockRouter, status_code
+):
+    method = "post"
+    path = "/foo"
+    client.retry_max_attempts = 2
+    output = {"message": "gateway errors", "details": [{"test": "error"}]}
+    respx_mock.request(method, path).mock(
+        return_value=httpx.Response(status_code, json=output)
+    )
+
+    with pytest.raises(EpigosException) as exc:
+        client.make_request(path=path, method=method)
+
+    assert exc.value.details == output["details"]
+    assert exc.value.status_code == status_code
+    assert client._retry.attempt_number == client.retry_max_attempts
