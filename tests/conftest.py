@@ -14,7 +14,7 @@ from epigos import Epigos
 
 @pytest.fixture
 def client():
-    return Epigos("api_key", base_url="http://test")
+    return Epigos("api_key", base_url="http://test", retries=0)
 
 
 @pytest.fixture
