@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/Epigos-AI/epigos-python/compare/epigos-v2.0.2...epigos-v2.1.0) (2024-05-13)
+
+
+### Features
+
+* add support to upload COCO dataset ([#116](https://github.com/Epigos-AI/epigos-python/issues/116)) ([9941369](https://github.com/Epigos-AI/epigos-python/commit/9941369a9efd61942dbcc11365e203514f201855))
+
 ## [2.0.2](https://github.com/Epigos-AI/epigos-python/compare/epigos-v2.0.1...epigos-v2.0.2) (2024-04-15)
 
 
