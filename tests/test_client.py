@@ -1,3 +1,5 @@
+import logging
+
 import httpx
 import pytest
 import respx
@@ -5,6 +7,7 @@ import respx
 from epigos import ClassificationModel, Epigos, EpigosException, ObjectDetectionModel
 from epigos.__version__ import __version__
 from epigos.client import RETRY_STATUS_CODES
+from epigos.utils import logger
 
 
 def test_client_and_headers(client: Epigos):
@@ -86,7 +89,7 @@ def test_client_resouce_methods(client: Epigos):
 
 @pytest.mark.parametrize("status_code", RETRY_STATUS_CODES)
 def test_client_can_call_api_retry_on_exception(
-    client: Epigos, respx_mock: respx.MockRouter, status_code
+    client: Epigos, respx_mock: respx.MockRouter, status_code, caplog
 ):
     method = "post"
     path = "/foo"
@@ -96,9 +99,13 @@ def test_client_can_call_api_retry_on_exception(
         return_value=httpx.Response(status_code, json=output)
     )
 
-    with pytest.raises(EpigosException) as exc:
+    with (
+        caplog.at_level(logger=logger.name, level=logging.ERROR),
+        pytest.raises(EpigosException) as exc,
+    ):
         client.make_request(path=path, method=method)
 
     assert exc.value.details == output["details"]
     assert exc.value.status_code == status_code
     assert client._retry.attempt_number == client.retry_max_attempts
+    assert "Retrying epigos.client.Epigos.make_request" in caplog.text

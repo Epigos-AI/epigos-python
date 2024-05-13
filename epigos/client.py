@@ -13,6 +13,10 @@ BASE_API = "https://api.epigos.ai"
 RETRY_STATUS_CODES = [502, 503, 504]
 
 
+def _retry_on_status_codes(exc: BaseException) -> bool:
+    return isinstance(exc, EpigosException) and exc.status_code in RETRY_STATUS_CODES
+
+
 class Epigos:
     """
     Epigos.
@@ -90,10 +94,7 @@ class Epigos:
             stop=tenacity.stop_after_attempt(self.retry_max_attempts),
             wait=tenacity.wait_random_exponential(multiplier=1, max=15),
             reraise=True,
-            retry=tenacity.retry_if_exception(
-                lambda exc: isinstance(exc, EpigosException)
-                and exc.status_code in RETRY_STATUS_CODES
-            ),
+            retry=tenacity.retry_if_exception(_retry_on_status_codes),
             before_sleep=tenacity.before_sleep_log(logger, logger.level),
         )
         for attempt in retryer:
