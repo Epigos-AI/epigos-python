@@ -1,4 +1,5 @@
 import io
+import mimetypes
 import typing
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -8,12 +9,7 @@ from PIL import Image, ImageOps
 
 from epigos import typings
 from epigos.data_classes.dataset import Classification, Detection
-from epigos.dataset.utils import (
-    read_pascal_voc_to_coco,
-    read_single_coco_annotation,
-    read_yolo_to_coco,
-    resize_bounding_box,
-)
+from epigos.dataset import utils as dataset_utils
 from epigos.typings import BoxFormat
 from epigos.utils import image as img_utils
 from epigos.utils import logger
@@ -78,6 +74,7 @@ class Uploader:
             )
 
         with Image.open(image_path) as img:
+            content_type = mimetypes.guess_type(image_path)[0] or "image/jpeg"
             orig_image_size = img.size
 
             if img.format not in ACCEPTED_IMAGE_FORMATS:
@@ -95,9 +92,7 @@ class Uploader:
                     yolo_labels_map=yolo_labels_map,
                 )
             record = self._upload_image(
-                img,
-                image_path,
-                batch_id=batch_id,
+                img, image_path, batch_id=batch_id, content_type=content_type
             )
 
         if annotations:
@@ -147,20 +142,15 @@ class Uploader:
         return {label["name"]: label["id"] for label in labels}
 
     def _upload_image(
-        self,
-        img: Image.Image,
-        image_path: Path,
-        batch_id: str,
+        self, img: Image.Image, image_path: Path, batch_id: str, content_type: str
     ) -> typing.Dict[str, typing.Any]:
-        content_type = img.get_format_mimetype()  # type: ignore
-
         presigned = self._client.make_post(
             path=f"/projects/{self._project_id}/upload/",
             json={"name": image_path.name, "content_type": content_type},
         )
 
         with io.BytesIO() as fp:
-            img.save(fp, format=img.format)
+            img.save(fp, format="JPEG")
             content = fp.getvalue()
             img_size = len(content)
 
@@ -234,15 +224,17 @@ class Uploader:
             return annotations
 
         if box_format == typings.BoxFormat.yolo:
-            annotations = read_yolo_to_coco(
+            annotations = dataset_utils.read_yolo_to_coco(
                 annotation_path,
                 image_size=orig_image_size,
                 idx_to_label=yolo_labels_map,
             )
         elif box_format == typings.BoxFormat.coco:
-            annotations = read_single_coco_annotation(image_name, annotation_path)
+            annotations = dataset_utils.read_single_coco_annotation(
+                image_name, annotation_path
+            )
         else:
-            annotations = read_pascal_voc_to_coco(
+            annotations = dataset_utils.read_pascal_voc_to_coco(
                 annotation_path,
             )
 
@@ -282,7 +274,9 @@ class Uploader:
                 )
             elif isinstance(annot, Detection):
                 if img_scale:
-                    bbox = resize_bounding_box(annot.bbox, img_scale, orig_image_size)
+                    bbox = dataset_utils.resize_bounding_box(
+                        annot.bbox, img_scale, orig_image_size
+                    )
                 else:
                     bbox = annot.bbox
 

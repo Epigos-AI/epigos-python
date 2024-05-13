@@ -1,3 +1,4 @@
+import logging
 from unittest.mock import MagicMock, call
 
 import httpx
@@ -8,6 +9,7 @@ import yaml
 from epigos import Epigos, typings
 from epigos.core.uploader import Uploader
 from epigos.dataset import ClassificationDataset, DetectionDataset
+from epigos.utils import logger
 
 
 @pytest.fixture
@@ -298,6 +300,42 @@ def test_project_upload_dataset_empty_directory(
     uploader.upload.assert_not_called()
 
 
+@pytest.mark.respx(assert_all_called=True, assert_all_mocked=True)
+@pytest.mark.parametrize(
+    "project_type",
+    [typings.ProjectType.classification, typings.ProjectType.object_detection],
+)
+@pytest.mark.parametrize(
+    "box_format",
+    [typings.BoxFormat.pascal_voc, typings.BoxFormat.yolo],
+)
+def test_project_upload_dataset_deprecated(
+    client: Epigos,
+    mock_project,
+    project_type: typings.ProjectType,
+    box_format: typings.BoxFormat,
+    tmp_path,
+):
+    with open(tmp_path / "data.yaml", "w") as fp:
+        yaml.safe_dump({}, fp)
+
+    mock_project(project_type)
+    project = client.project("project_id")
+
+    uploader = MagicMock(spec=Uploader)
+    project._uploader = uploader
+    with pytest.raises(
+        DeprecationWarning,
+        match="Use `upload_coco_dataset`, `upload_yolo_dataset`, `upload_pascal_voc_dataset` or "
+        "`upload_classification_dataset` instead.",
+    ):
+        tuple(project.upload_dataset(tmp_path, box_format=box_format))
+
+    uploader.create_batch.assert_not_called()
+    uploader.create_labels.assert_not_called()
+    uploader.upload.assert_not_called()
+
+
 @pytest.mark.parametrize("split", ["train", "val"])
 @pytest.mark.respx(assert_all_called=True, assert_all_mocked=True)
 def test_project_upload_classification_dataset(
@@ -521,3 +559,36 @@ def test_project_upload_object_detection_coco_annotation_dataset(
         for img, annot in ds
     ]
     uploader.upload.assert_has_calls(calls, any_order=True)
+
+
+@pytest.mark.respx(assert_all_called=True, assert_all_mocked=True)
+def test_project_upload_dataset_error(
+    client: Epigos, mock_project, coco_directory, caplog
+):
+    mock_project(typings.ProjectType.object_detection)
+    project = client.project("project_id")
+
+    uploader = MagicMock(
+        spec=Uploader, **{"upload.side_effect": httpx.HTTPError("Some http error")}
+    )
+    project._uploader = uploader
+    annotations_path = coco_directory / "coco.json"
+    ds = DetectionDataset.from_coco(
+        images_directory_path=coco_directory,
+        annotations_path=annotations_path,
+    )
+
+    with caplog.at_level(logging.ERROR, logger=logger.name):
+        records = list(
+            project.upload_coco_dataset(
+                coco_directory, annotations_path=annotations_path
+            )
+        )
+
+        assert len(records) == len(ds)
+        for record in records:
+            assert "response" not in record
+            assert (
+                "Error occured while uploading file: %s" % record["img_path"]
+                in caplog.text
+            )

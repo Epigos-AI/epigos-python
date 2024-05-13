@@ -258,6 +258,14 @@ def mock_image(tmp_path):
 
 
 @pytest.fixture
+def mock_large_image(tmp_path):
+    img_path = tmp_path / "test.jpg"
+    img = Image.new("RGB", (2048, 1024), color="white")
+    img.save(img_path)
+    return img_path
+
+
+@pytest.fixture
 def mock_upload_api_calls(respx_mock: respx.MockRouter):
     def wrapper(labels: list[str]):
         labels_payload = [

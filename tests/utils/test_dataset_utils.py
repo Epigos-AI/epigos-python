@@ -5,6 +5,7 @@ from epigos.dataset.utils import (
     read_single_coco_annotation,
     read_yolo_config,
     read_yolo_to_coco,
+    resize_bounding_box,
 )
 
 
@@ -44,3 +45,33 @@ def test_read_single_coco_annotation(coco_directory, image_name):
     ds = read_single_coco_annotation(image_name, annotation_path)
 
     assert len(ds) == 2
+
+
+def test_resize_bounding_box():
+    # Test case 1: Upscale image
+    bbox = (10, 20, 30, 40)
+    img_scale = (800, 600)
+    orig_image_size = (400, 300)
+    expected_output = (20, 40, 60, 80)
+    assert resize_bounding_box(bbox, img_scale, orig_image_size) == expected_output
+
+    # Test case 2: Downscale image
+    bbox = (10, 20, 30, 40)
+    img_scale = (200, 150)
+    orig_image_size = (400, 300)
+    expected_output = (5, 10, 15, 20)
+    assert resize_bounding_box(bbox, img_scale, orig_image_size) == expected_output
+
+    # Test case 3: No scaling
+    bbox = (10, 20, 30, 40)
+    img_scale = (400, 300)
+    orig_image_size = (400, 300)
+    expected_output = (10, 20, 30, 40)
+    assert resize_bounding_box(bbox, img_scale, orig_image_size) == expected_output
+
+    # Test case 4: Negative values
+    bbox = (-10, -20, 30, 40)
+    img_scale = (800, 600)
+    orig_image_size = (400, 300)
+    expected_output = (-20, -40, 60, 80)
+    assert resize_bounding_box(bbox, img_scale, orig_image_size) == expected_output

@@ -1,4 +1,6 @@
+import logging
 from pathlib import Path
+from unittest import mock
 
 import httpx
 import pytest
@@ -8,6 +10,7 @@ from PIL import Image
 from epigos import Epigos, typings
 from epigos.core.uploader import Uploader
 from epigos.dataset import utils
+from epigos.utils import logger
 
 
 @pytest.mark.respx(assert_all_called=True, assert_all_mocked=True)
@@ -300,18 +303,83 @@ def test_upload_coco_annotations(
 
 @pytest.mark.respx(assert_all_mocked=True, assert_all_called=False)
 def test_upload_coco_annotations_no_annotations(
-    client: Epigos, mock_image: Path, coco_directory: Path, mock_upload_api_calls
+    client: Epigos,
+    mock_image: Path,
+    coco_directory: Path,
+    mock_upload_api_calls,
+    caplog,
 ):
     uploader = Uploader(client, "project_id", typings.ProjectType.object_detection)
 
     mock_upload_api_calls(labels=["cat", "dog"])
 
     annotation_path = coco_directory / "coco.json"
-    rec = uploader.upload(
-        batch_id="batch-id",
-        image_path=mock_image,
-        annotation_path=annotation_path,
-        box_format=typings.BoxFormat.coco,
-    )
+    with caplog.at_level(logging.WARNING, logger=logger.name):
+        rec = uploader.upload(
+            batch_id="batch-id",
+            image_path=mock_image,
+            annotation_path=annotation_path,
+            box_format=typings.BoxFormat.coco,
+        )
+        assert rec["id"] == "record-id"
+        assert rec["annotations"] == []
+
+        assert (
+            "No annotations available for %s in file: %s!"
+            % (mock_image.name, annotation_path)
+            in caplog.text
+        )
+
+
+@pytest.mark.respx(assert_all_mocked=True, assert_all_called=False)
+def test_upload_invalid_annotation_file(
+    client: Epigos,
+    mock_image: Path,
+    coco_directory: Path,
+    mock_upload_api_calls,
+    caplog,
+):
+    uploader = Uploader(client, "project_id", typings.ProjectType.object_detection)
+
+    mock_upload_api_calls(labels=["cat", "dog"])
+
+    annotation_path = coco_directory / "invalid.json"
+    with caplog.at_level(logging.WARNING, logger=logger.name):
+        rec = uploader.upload(
+            batch_id="batch-id",
+            image_path=mock_image,
+            annotation_path=annotation_path,
+            box_format=typings.BoxFormat.coco,
+        )
+        assert rec["id"] == "record-id"
+        assert rec["annotations"] == []
+
+        assert "No annotations file found: %s!" % annotation_path in caplog.text
+
+
+@pytest.mark.respx(assert_all_called=True, assert_all_mocked=True)
+def test_upload_with_image_scaling(
+    client: Epigos,
+    mock_large_image: Path,
+    pascal_voc_annotation: Path,
+    mock_upload_api_calls,
+):
+    uploader = Uploader(client, "project_id", typings.ProjectType.object_detection)
+
+    annotations = utils.read_pascal_voc_to_coco(annotation_file=pascal_voc_annotation)
+
+    mock_upload_api_calls(labels=["car", "person"])
+
+    with mock.patch.object(
+        utils, "resize_bounding_box", return_value=(3, 1, 2, 10)
+    ) as mock_resize:
+        rec = uploader.upload(
+            batch_id="batch-id",
+            image_path=mock_large_image,
+            annotations=annotations,
+        )
+        mock_resize.assert_called()
+        assert mock_resize.call_count == len(annotations)
+
     assert rec["id"] == "record-id"
-    assert rec["annotations"] == []
+    assert rec["annotations"] == [{"id": "annotation-id"}]
