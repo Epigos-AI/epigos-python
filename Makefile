@@ -2,7 +2,7 @@
 
 #: run linter
 lint: format
-	poetry lock --check
+	poetry check --lock
 	poetry run autoflake --check .
 	poetry run isort --check-only .
 	poetry run black --check .
