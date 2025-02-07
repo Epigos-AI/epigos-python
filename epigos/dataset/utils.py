@@ -30,7 +30,7 @@ def _extract_bbox_from_element(
 def _extract_size_from_element(
     size: ET.Element,
 ) -> typing.Optional[typing.Tuple[int, int]]:
-    if not size and not len(size) > 1:
+    if size is None or len(size) < 1:
         return None
 
     attrs = ["width", "height"]
@@ -65,7 +65,7 @@ def read_pascal_voc_to_coco(
     tree = ET.parse(annotation_file)
     root = tree.getroot()
     size_el = root.find("size")
-    image_size = _extract_size_from_element(size_el) if size_el else None
+    image_size = _extract_size_from_element(size_el) if size_el is not None else None
 
     annotations = []
 
