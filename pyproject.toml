@@ -15,7 +15,7 @@ include = "epigos"
 
 [tool.poetry.dependencies]
 python = "^3.9"
-httpx = ">=0.24.1,<0.28.0"
+httpx = ">=0.24.1,<0.29.0"
 typing-extensions = "^4.7.1"
 pillow = ">=10,<12"
 pybboxes = "^0.1.6"
